@@ -47,7 +47,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     NfcPro.onTagDiscovered.listen((data) {
       setState(() {
         _status = "Tag Detected!";
-        _tagData = "UID: ${data['uid']}\nType: ${data['type']}\nContent: ${data['content'] ?? 'Empty'}";
+        _tagData =
+            "UID: ${data['uid']}\nType: ${data['type']}\nContent: ${data['content'] ?? 'Empty'}";
       });
     }).onError((error) {
       setState(() {
@@ -71,7 +72,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             const Text(
               "NFC STATUS",
-              style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             Container(
@@ -90,7 +94,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(width: 15),
                   Text(
                     _status,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -98,7 +103,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 30),
             const Text(
               "LAST SCAN DATA",
-              style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             Expanded(
@@ -112,7 +120,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: SingleChildScrollView(
                   child: Text(
                     _tagData,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+                    style:
+                        const TextStyle(fontFamily: 'monospace', fontSize: 14),
                   ),
                 ),
               ),

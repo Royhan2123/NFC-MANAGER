@@ -12,7 +12,8 @@ import 'package:flutter/services.dart';
  * - Raw APDU Transceive
  */
 class NfcPro {
-  static const MethodChannel _methodChannel = MethodChannel('com.nfcpro/methods');
+  static const MethodChannel _methodChannel =
+      MethodChannel('com.nfcpro/methods');
   static const EventChannel _eventChannel = EventChannel('com.nfcpro/events');
 
   /// Starts the NFC scanning session.
@@ -34,14 +35,16 @@ class NfcPro {
 
   /// Writes NDEF data (Text/URL) to the currently detected tag.
   static Future<bool> writeTag(String data) async {
-    final bool? success = await _methodChannel.invokeMethod('writeTag', {'data': data});
+    final bool? success =
+        await _methodChannel.invokeMethod('writeTag', {'data': data});
     return success ?? false;
   }
 
   /// Sets the identity string for HCE (Identity Emulation).
   /// This allows your phone to act as a specific card.
   static Future<bool> setClonedId(String id) async {
-    final bool? success = await _methodChannel.invokeMethod('setClonedId', {'id': id});
+    final bool? success =
+        await _methodChannel.invokeMethod('setClonedId', {'id': id});
     return success ?? false;
   }
 
