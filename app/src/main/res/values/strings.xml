@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">NFC Pro Manager</string>
+    <string name="hce_service_desc">NFC Pro Identity Service</string>
+    <string name="hce_aid_group_desc">Secure Identity Emulation</string>
+</resources>
