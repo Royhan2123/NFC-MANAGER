@@ -20,4 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "kotlin-nfc-manager"
-include(":app")
+include(":android")
