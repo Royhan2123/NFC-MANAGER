@@ -22,10 +22,55 @@ The enterprise-grade NFC SDK for Flutter. Engineered for low-latency communicati
 
 ---
 
-## 🎯 Designed For
-- **Enterprise Access Control**: Emulate employee badges and security keys.
-- **Smart Card Research**: Deep-dive into APDU communication.
-- **Authentication Systems**: Build secure challenge-response login flows.
+## 📦 Installation
+
+Add this to your `pubspec.yaml`:
+```yaml
+dependencies:
+  nfc_pro_manager: ^1.5.2
+```
+
+---
+
+## 🚀 Quick Start
+
+Get up and running in seconds:
+```dart
+import 'package:nfc_pro_manager/nfc_pro_manager.dart';
+
+// Start a simple session
+await NfcPro.startSession(
+  onDiscovered: (tag) {
+    print("UID Found: ${tag.uid}");
+  },
+);
+```
+
+---
+
+## 📖 SDK Features
+
+*   **Session Lifecycle Management**: Robust `startSession` and `stopSession` with built-in **Timeout Control**.
+*   **Identity Emulation (HCE)**: Securely emulate virtual smart cards via Android Host Card Emulation.
+*   **ISO-DEP / APDU Transceive**: Direct low-level communication with Smart Cards at native speeds.
+*   **Strongly Typed Engine**: All tag data is returned as structured `NfcTag` models.
+*   **SDK Helpers**: Professional utilities like `NfcUtils.buildSelectAid()` and response validation.
+
+---
+
+## 📡 NFC Session Flow
+
+```text
+[ Start Session ] 
+      ↓
+[ Wait for Tag ] <--- (Hardware Level)
+      ↓
+[ Tag Discovered ] 
+      ↓
+[ Process (NDEF / APDU) ]
+      ↓
+[ Complete / Stop Session ]
+```
 
 ---
 
@@ -37,44 +82,19 @@ The enterprise-grade NFC SDK for Flutter. Engineered for low-latency communicati
 | `disabled` | NFC is turned off in settings. | Prompt user to enable NFC. |
 | `timeout` | No tag detected within duration. | Increase timeout or retry session. |
 | `connectionLost` | Tag moved too quickly. | Ask user to hold the tag steadily. |
-| `invalidApdu` | Malformed APDU command. | Verify hex string format and LC/LE bytes. |
-
----
-
-## 🔄 Versioning Strategy
-- **v1.x.x**: Stable API. Focus on bug fixes and performance optimization.
-- **v2.x.x**: (Future) Planned breaking changes to support Multi-session HCE and improved iOS ISO-DEP.
-
----
-
-## 📖 SDK Features
-
-### Session Lifecycle Management
-**Important**: Avoid using `startSession()` and `onTagDiscovered` simultaneously unless you need both localized and global listeners.
-
-```dart
-await NfcPro.startSession(
-  timeout: Duration(seconds: 10),
-  onDiscovered: (tag) => print(tag.uid),
-  onError: (e) => print(e.type),
-);
-```
-
-### SDK Helpers (APDU)
-```dart
-String capdu = NfcUtils.buildSelectAid("A000000003000000");
-String? response = await NfcPro.transceive(capdu);
-
-if (NfcUtils.isSuccess(response)) {
-  // Handshake successful
-}
-```
 
 ---
 
 ## ⚡ Performance Metrics
 - **Discovery Latency**: < 250ms.
 - **APDU Round-trip**: 50ms - 150ms.
+- **Disclaimer**: *Performance may vary depending on device hardware and NFC chip quality.*
+
+---
+
+## 🔄 Versioning Strategy
+- **v1.x.x**: Stable API. Focus on bug fixes and performance optimization.
+- **v2.x.x**: (Future) Planned breaking changes to support Multi-session HCE.
 
 ---
 
