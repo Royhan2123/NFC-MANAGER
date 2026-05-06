@@ -78,3 +78,4 @@ Content: Secure Identity Token v3
 
 ## 📄 License
 MIT License. Created with ❤️ for the Flutter community.
+
