@@ -1,0 +1,19 @@
+name: nfc_pro_manager_example
+description: Demonstrates how to use the nfc_pro_manager plugin.
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  nfc_pro_manager:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

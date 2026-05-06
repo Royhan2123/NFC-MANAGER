@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2026-05-06
+
+### Fixed
+- Fixed Android "Main Class Not Found" error by correctly structuring the package folders.
+- Fixed iOS directory naming (renamed `ios_core` to `ios`).
+- Added required `NfcProPlugin.swift` and `.podspec` for iOS support.
+- Cleaned up `AndroidManifest.xml` to prevent build conflicts and double icons in host apps.
+
 ## [1.0.0] - 2026-05-05
 
 ### Added
