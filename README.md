@@ -30,6 +30,7 @@ dependencies:
 ### Usage
 
 #### 1. Listening for Tags
+
 ```dart
 import 'package:nfc_pro_manager/nfc_pro_api.dart';
 
@@ -44,12 +45,14 @@ await NfcPro.startScan();
 ```
 
 #### 2. Writing Data
+
 ```dart
 bool success = await NfcPro.writeTag("https://flutter.dev");
 if (success) print("Write Successful!");
 ```
 
 #### 3. Card Cloning (HCE)
+
 ```dart
 // Capture a card's ID and make the phone emulate it
 await NfcPro.setClonedId("IDENTITY-9988");
@@ -60,13 +63,16 @@ await NfcPro.setClonedId("IDENTITY-9988");
 ## 🛠 Platform Setup
 
 ### Android
+
 Add permissions to your `AndroidManifest.xml`:
+
 ```xml
 <uses-permission android:name="android.permission.NFC" />
 <uses-feature android:name="android.hardware.nfc" android:required="true" />
 ```
 
 For HCE support, register the service:
+
 ```xml
 <service android:name="com.example.kotlin_nfc_manager.NfcHceService"
          android:exported="true"
@@ -78,7 +84,9 @@ For HCE support, register the service:
 ---
 
 ## 🎨 Design System
+
 This package includes a pre-built UI library to help you create stunning NFC apps:
+
 - **Command Center Dashboard**
 - **Secure Scan Terminal**
 - **Cloning Wizard**
@@ -86,14 +94,18 @@ This package includes a pre-built UI library to help you create stunning NFC app
 ---
 
 ## 📄 License
+
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
+
 Contributions are welcome! Please open an issue or submit a pull request on GitHub.
 
 ---
-*Built with ❤️ for the Flutter Community.*
+
+_Built with ❤️ for the Flutter Community._
 
 ---
-Contact me to for enterprise Solution : 
-royhankeren12@gmail.com
+
+Contact me for more info regarding nfc pro manager :
+gmail: royhan090304@gmail.com
