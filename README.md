@@ -1,85 +1,106 @@
-# NFC Pro Manager 🚀 (Version 2.2.0)
+# NFC Pro Manager 🚀💎
 
-The enterprise-grade NFC SDK for Flutter. Engineered for low-latency communication, advanced **ISO-DEP (APDU)** interaction, and **Identity Emulation (HCE)**.
+[![pub package](https://img.shields.io/pub/v/nfc_pro_manager.svg)](https://pub.dev/packages/nfc_pro_manager)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
----
-
-## 🏗 Architecture Overview
-
-```text
-[ Flutter Application ]
-          |
-    [ NfcPro SDK ]  <--- (Session State Machine)
-          |
-   [ Platform Channel ]
-    /            \
-[ Android ]    [ iOS ]
-    |             |
-[HCE / IsoDep] [CoreNFC*]
-```
-*\*iOS support is currently limited to NDEF Read/Write. HCE is Android-only.*
+**The industry-grade NFC SDK for Flutter.**  
+Engineered for high-security environments, enterprise lifecycle management, and bank-grade HCE compliance.
 
 ---
 
-## 🔥 Professional Features (v2.2.0)
-
--   **Session State Machine**: Track lifecycle via `NfcPro.state` (idle, active, processing, etc).
--   **NfcApdu Builder**: Simplified APDU command construction (SELECT AID, READ BINARY).
--   **Hardware Stability**: Native debouncing and 5-second hardware timeouts.
--   **UX Helpers**: `NfcPro.openSettings()` to guide users when NFC is disabled.
--   **Deterministic Lifecycle**: Fixed race conditions in event dispatching.
+## 🔥 What's New in v3.0.0 (The Professional Rebranding)
+- **Professional Identity**: Migrated to `com.nfcpro.manager` namespace for production credibility.
+- **Diamond Lifecycle**: Automated session suspension when app enters background via `DefaultLifecycleObserver`.
+- **Bank-Grade HCE**: Full ISO 7816-4 FCI Template support (6F -> 84 -> A5).
+- **Atomic Concurrency**: Lock-free hardware access using `AtomicBoolean` for extreme reliability.
+- **Real-time Presence**: Detection of card removal via `isTagPresent()`.
 
 ---
 
-## 📦 Installation
+## 🛠 Features
+- ✅ **HCE (Host Card Emulation)**: Clone identities or emulate smart cards.
+- ✅ **ISO-DEP / APDU**: Full support for banking, e-money, and access cards.
+- ✅ **NDEF Support**: Read/Write Text and URI records with multi-record support.
+- ✅ **Persistent Connection**: Keep connections alive for multiple APDU exchanges.
+- ✅ **Event Buffering**: No data loss during application startup.
+- ✅ **Cross Platform**: Robust implementation for both Android and iOS.
 
+---
+
+## 🚀 Getting Started
+
+### Installation
+Add this to your `pubspec.yaml`:
 ```yaml
 dependencies:
-  nfc_pro_manager: ^2.2.0
+  nfc_pro_manager: ^3.0.0
 ```
 
----
-
-## 🚀 Quick Start
-
-```dart
-// 1. Check & Open Settings
-final support = await NfcPro.checkSupport();
-if (!support.isAvailable) {
-  await NfcPro.openSettings();
-}
-
-// 2. Start Secure Session
-await NfcPro.startSession(
-  timeout: Duration(seconds: 10),
-  onDiscovered: (tag) async {
-    print("Tag: ${tag.uid}");
+### Android Configuration
+Ensure your `AndroidManifest.xml` includes:
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.your.app.id">
     
-    // 3. Use Apdu Builder
-    final command = NfcApdu.selectAid("F0010203040506");
-    final response = await NfcPro.transceive(command);
-  },
-);
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+</manifest>
 ```
 
 ---
 
-## 🔧 Platform Support Matrix
+## 📖 Usage
 
+### Start Scanning
+```dart
+import 'package:nfc_pro_manager/nfc_pro_manager.dart';
+
+void startNfc() async {
+  await NfcPro.startSession(
+    onDiscovered: (tag) {
+      print("Tag Found: ${tag.uid}");
+    },
+    onError: (exception) {
+      print("NFC Error: ${exception.message}");
+    },
+  );
+}
+```
+
+### Transceive APDU (Smart Cards)
+```dart
+String? response = await NfcPro.transceive("00A4040007F001020304050600");
+```
+
+### runScript (APDU Batch)
+```dart
+List<String?> responses = await NfcPro.runScript([
+  NfcApdu.selectAid("F0010203040506"),
+  NfcApdu.readBinary(sfi: 1, offset: 0),
+]);
+```
+
+### Identity Emulation (HCE)
+```dart
+await NfcPro.setEmulationId("PRO-IDENTITY-123");
+```
+
+---
+
+## 🎖 Support Matrix
 | Feature | Android | iOS |
-| :--- | :---: | :---: |
-| NDEF Read/Write | ✅ | ✅ |
-| ISO-DEP (APDU) | ✅ | 🚧 (Experimental) |
-| HCE (Emulation) | ✅ | ❌ (OS Limit) |
-| Session Timeout | ✅ | ✅ |
+|---------|:-------:|:---:|
+| Tag Reading | ✅ | ✅ |
+| NDEF Write | ✅ | ❌ |
+| HCE (Emulation) | ✅ | ❌ |
+| APDU (ISO-DEP) | ✅ | ✅ |
+| FeliCa | ✅ | ✅ |
+| MiFare | ✅ | ✅ |
 
 ---
 
-## 🔄 Versioning Strategy
-- **v2.x.x**: Stable Enterprise SDK.
-- **v3.x.x**: (Planned) Advanced iOS CoreNFC integration.
-
----
+## 🤝 Contributing
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📄 License
-MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
