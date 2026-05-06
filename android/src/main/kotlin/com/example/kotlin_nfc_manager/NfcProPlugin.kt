@@ -70,6 +70,15 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 val id = prefs?.getString("cloned_identity", "")
                 result.success(id)
             }
+            "isAvailable" -> {
+                val nfcAdapter = android.nfc.NfcAdapter.getDefaultAdapter(context)
+                result.success(nfcAdapter != null && nfcAdapter.isEnabled)
+            }
+            "supportsEmulation" -> {
+                val pm = context?.packageManager
+                val supportsHce = pm?.hasSystemFeature(android.content.pm.PackageManager.FEATURE_NFC_HOST_CARD_EMULATION) ?: false
+                result.success(supportsHce)
+            }
             "transceive" -> {
                 val capdu = call.argument<String>("capdu") ?: ""
                 val rapdu = nfcController?.transceiveApdu(capdu)

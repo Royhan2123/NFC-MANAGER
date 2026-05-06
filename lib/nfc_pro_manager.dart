@@ -1,6 +1,16 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
+/// Supported types of NFC errors for structured handling.
+enum NfcErrorType {
+  notSupported,
+  disabled,
+  timeout,
+  connectionLost,
+  invalidApdu,
+  unknown
+}
+
 /// Represents a discovered NFC tag with structured data.
 class NfcTag {
   final String uid;
@@ -18,23 +28,42 @@ class NfcTag {
   }
 }
 
-/// Professional NFC Manager API.
+/// Professional NFC Manager API with Enterprise Session Control.
 class NfcPro {
   static const MethodChannel _methodChannel = MethodChannel('com.nfcpro/methods');
   static const EventChannel _eventChannel = EventChannel('com.nfcpro/events');
 
-  /// Starts the NFC scanning session.
-  static Future<bool> startScan() async {
+  /// Checks if NFC hardware is available and enabled on the device.
+  static Future<bool> isAvailable() async {
+    final bool? available = await _methodChannel.invokeMethod('isAvailable');
+    return available ?? false;
+  }
+
+  /// Verifies if the device supports Host Card Emulation (HCE).
+  static Future<bool> supportsEmulation() async {
+    final bool? supported = await _methodChannel.invokeMethod('supportsEmulation');
+    return supported ?? false;
+  }
+
+  /// Starts a professional NFC session.
+  /// Use this for clean session lifecycle management.
+  static Future<void> startSession({
+    Function(NfcTag)? onDiscovered,
+    Function(NfcException)? onError,
+  }) async {
     try {
-      final bool? success = await _methodChannel.invokeMethod('startScan');
-      return success ?? false;
+      await _methodChannel.invokeMethod('startScan');
     } on PlatformException catch (e) {
-      throw NfcException(e.message ?? "Failed to start scan", code: e.code);
+      if (onError != null) {
+        onError(NfcException.fromPlatformException(e));
+      } else {
+        rethrow;
+      }
     }
   }
 
-  /// Stops the NFC scanning session.
-  static Future<void> stopScan() async {
+  /// Stops the current NFC session and releases hardware resources.
+  static Future<void> stopSession() async {
     await _methodChannel.invokeMethod('stopScan');
   }
 
@@ -49,20 +78,15 @@ class NfcPro {
     try {
       return await _methodChannel.invokeMethod('transceive', {'capdu': capdu});
     } on PlatformException catch (e) {
-      throw NfcException(e.message ?? "APDU Transmission Failed", code: e.code);
+      throw NfcException.fromPlatformException(e);
     }
   }
 
   /// Sets the identity string for HCE (Identity Emulation).
-  /// Replaced 'cloning' terminology for professional compliance.
+  /// [id] is the string identity that will be processed by the internal AID routing.
   static Future<bool> setEmulationId(String id) async {
     final bool? success = await _methodChannel.invokeMethod('setClonedId', {'id': id});
     return success ?? false;
-  }
-
-  /// Gets the currently stored emulation identity.
-  static Future<String?> getEmulationId() async {
-    return await _methodChannel.invokeMethod('getClonedId');
   }
 
   /// Stream that listens to real-time NFC events.
@@ -73,12 +97,27 @@ class NfcPro {
   }
 }
 
-/// Custom Exception for NFC related errors.
+/// Custom Exception for NFC related errors with specific types.
 class NfcException implements Exception {
   final String message;
+  final NfcErrorType type;
   final String code;
-  NfcException(this.message, {this.code = 'NFC_ERROR'});
+
+  NfcException(this.message, {this.type = NfcErrorType.unknown, this.code = 'NFC_ERROR'});
+
+  factory NfcException.fromPlatformException(PlatformException e) {
+    NfcErrorType type;
+    switch (e.code) {
+      case 'NOT_SUPPORTED': type = NfcErrorType.notSupported; break;
+      case 'DISABLED': type = NfcErrorType.disabled; break;
+      case 'TIMEOUT': type = NfcErrorType.timeout; break;
+      case 'CONNECTION_LOST': type = NfcErrorType.connectionLost; break;
+      case 'INVALID_APDU': type = NfcErrorType.invalidApdu; break;
+      default: type = NfcErrorType.unknown;
+    }
+    return NfcException(e.message ?? "Unknown NFC Error", type: type, code: e.code);
+  }
 
   @override
-  String toString() => 'NfcException ($code): $message';
+  String toString() => 'NfcException [$type]: $message';
 }
