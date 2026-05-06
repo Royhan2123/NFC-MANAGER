@@ -12,10 +12,6 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 
-/**
- * NfcProPlugin - Version 2.0 (Industry Grade)
- * Enhanced lifecycle management and robust error reporting.
- */
 class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
     private lateinit var channel: MethodChannel
@@ -28,19 +24,19 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         context = flutterPluginBinding.applicationContext
-        
-        // Setup Method Channel
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "com.nfcpro/methods")
         channel.setMethodCallHandler(this)
         
-        // Setup Event Channel
         eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "com.nfcpro/events")
         eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                 eventSink = events
+                // Fix BUG 1: Update eventSink in controller when it becomes available
+                nfcController?.updateEventSink(events)
             }
             override fun onCancel(arguments: Any?) {
                 eventSink = null
+                nfcController?.updateEventSink(null)
             }
         })
     }
@@ -74,7 +70,7 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                     val capdu = call.argument<String>("capdu") ?: ""
                     val rapdu = nfcController?.transceiveApdu(capdu)
                     if (rapdu != null) result.success(rapdu) 
-                    else result.error("INVALID_APDU", "APDU transmission failed or timeout", null)
+                    else result.error("CONNECTION_LOST", "Tag removed during APDU exchange", null)
                 }
                 "setClonedId" -> {
                     val id = call.argument<String>("id") ?: ""
@@ -97,10 +93,9 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         channel.setMethodCallHandler(null)
     }
 
-    // --- Activity Lifecycle Management ---
-
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activity = binding.activity
+        // Inject current eventSink (even if null) and update it later via onListen
         nfcController = NfcController(activity!!, eventSink)
     }
 
@@ -108,7 +103,8 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         onDetachedFromActivity()
     }
 
-    override fun ReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+    // Fix BUG 2: Correct method name (casing)
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
         onAttachedToActivity(binding)
     }
 
