@@ -1,111 +1,101 @@
 # NFC Pro Manager 🚀
 
-The most powerful, aesthetically pleasing, and feature-rich NFC library for Flutter. Built for enterprise-grade applications requiring advanced features like **Host Card Emulation (HCE)**, **Card Cloning**, and **Smart Data Parsing**.
-
-[![Pub Version](https://img.shields.io/pub/v/nfc_pro_manager)](https://pub.dev/packages/nfc_pro_manager)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-## 🌟 Key Features
-
-- 📱 **Host Card Emulation (HCE)**: Turn your Android device into a digital identity card.
-- 👯 **Card Cloning**: Read a physical tag, store its identity, and emulate it instantly.
-- ✍️ **Tag Writer**: Write URLs, Text, and complex NDEF records to physical tags.
-- 🧠 **Smart Data Parsing**: Automatically categorizes NDEF content (Emails, VCards, URLs, etc.).
-- 🛡️ **Secure handshaking**: Advanced ISO-DEP communication for secure identity verification.
-- 🎨 **Premium UI Components**: Built-in iOS-inspired design system for your NFC apps.
+A professional and powerful NFC library for Flutter. Designed for advanced use cases including **Host Card Emulation (HCE)**, **Card Identity Emulation**, **NDEF Operations**, and **Raw APDU Transceive (ISO-DEP)**.
 
 ---
 
-## 🚀 Getting Started
+## 🌟 Key Features
 
-### Installation
+- **Identity Emulation (HCE)**: Make your phone act like a specific NFC card.
+- **Card Cloning Workflow**: Read a tag's UID and emulate it instantly.
+- **NDEF Read/Write**: Support for URLs, Text, and Smart Data.
+- **Raw APDU Commands**: Send custom commands to ISO-DEP smart cards (e.g., E-Money, Credit Cards).
+- **Headless Architecture**: No forced UI, full control via Flutter.
 
-Add `nfc_pro_manager` to your `pubspec.yaml`:
+---
 
-```yaml
-dependencies:
-  nfc_pro_manager: ^1.0.0
-```
+## ⚠️ Important Limitations
 
-### Usage
+Before using this package, please understand the following technical constraints:
 
-#### 1. Listening for Tags
-
-```dart
-import 'package:nfc_pro_manager/nfc_pro_api.dart';
-
-// Start listening to the stream
-NfcPro.onTagDiscovered.listen((tag) {
-  print("Found Tag: ${tag['uid']}");
-  print("Data: ${tag['content']}");
-});
-
-// Start the scanning session
-await NfcPro.startScan();
-```
-
-#### 2. Writing Data
-
-```dart
-bool success = await NfcPro.writeTag("https://flutter.dev");
-if (success) print("Write Successful!");
-```
-
-#### 3. Card Cloning (HCE)
-
-```dart
-// Capture a card's ID and make the phone emulate it
-await NfcPro.setClonedId("IDENTITY-9988");
-```
+1. **Hardware Specific**: Not all Android phones support HCE (Host Card Emulation). If the hardware doesn't support it, the emulation features will not work.
+2. **Encryption Barrier**: This package **CANNOT** bypass encrypted sectors of high-security cards (like Mifare DESFire or HID iClass) unless you provide the encryption keys. It focuses on **UID Emulation** and **NDEF data**.
+3. **Android 11+ Requirement**: For stable performance and advanced HCE features, this package requires **minSdkVersion 30**.
+4. **iOS Constraints**: iOS (Apple) strictly limits NFC access. Emulation (HCE) is **NOT supported on iOS** due to Apple's security policy. iOS only supports NDEF reading/writing and some ISO-DEP operations.
 
 ---
 
 ## 🛠 Platform Setup
 
 ### Android
-
-Add permissions to your `AndroidManifest.xml`:
-
+Add permissions to your `app/src/main/AndroidManifest.xml`:
 ```xml
 <uses-permission android:name="android.permission.NFC" />
 <uses-feature android:name="android.hardware.nfc" android:required="true" />
 ```
 
-For HCE support, register the service:
-
+### iOS
+Add to your `Info.plist`:
 ```xml
-<service android:name="com.example.kotlin_nfc_manager.NfcHceService"
-         android:exported="true"
-         android:permission="android.permission.BIND_NFC_SERVICE">
-    <!-- ... apdu service xml ... -->
-</service>
+<key>NFCReaderUsageDescription</key>
+<string>We need NFC access to scan tags.</string>
 ```
 
 ---
 
-## 🎨 Design System
+## 📖 Usage Examples
 
-This package includes a pre-built UI library to help you create stunning NFC apps:
+### 1. Basic Tag Discovery
+```dart
+import 'package:nfc_pro_manager/nfc_pro_manager.dart';
 
-- **Command Center Dashboard**
-- **Secure Scan Terminal**
-- **Cloning Wizard**
+NfcPro.onTagDiscovered.listen((tag) {
+  print("Tag UID: ${tag['uid']}");
+  print("Tag Type: ${tag['type']}");
+});
+
+await NfcPro.startScan();
+```
+
+### 2. Identity Emulation (HCE)
+```dart
+// Make this phone appear as a card with UID "BEEF-1234"
+await NfcPro.setClonedId("BEEF-1234");
+```
+
+### 3. Advanced: ISO-DEP / APDU Commands
+Use this to talk to smart cards (e.g., reading data from a secure chip).
+```dart
+// Example: Selecting a payment application (PPSE)
+String capdu = "00A404000E325041592E5359532E444446303100";
+String? response = await NfcPro.transceive(capdu);
+
+print("Card Response: $response");
+```
+
+---
+
+## 💼 Real Use Cases
+
+- **Digital Access Keys**: Emulate employee IDs or gym cards (non-encrypted UIDs).
+- **Asset Tracking**: Read and write specialized data to industrial NFC tags.
+- **Smart Business Cards**: Share vCards or URLs via NFC write.
+- **Payment Research**: Analyze APDU responses from contactless cards (for educational purposes).
+
+---
+
+## 📱 Device Compatibility
+
+| Feature | Android 11+ | iOS 13+ |
+| :--- | :---: | :---: |
+| UID Reading | ✅ | ✅ |
+| NDEF Read/Write | ✅ | ✅ |
+| ISO-DEP (APDU) | ✅ | ✅ |
+| HCE (Emulation) | ✅ | ❌ (Blocked by Apple) |
 
 ---
 
 ## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request on GitHub.
-
----
+This project is licensed under the MIT License.
 
 _Built with ❤️ for the Flutter Community._
-
----
-
-Contact me for more info regarding nfc pro manager :
-gmail: royhan090304@gmail.com

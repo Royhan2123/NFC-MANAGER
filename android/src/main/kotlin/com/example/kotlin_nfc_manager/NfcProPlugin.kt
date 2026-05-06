@@ -70,6 +70,11 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 val id = prefs?.getString("cloned_identity", "")
                 result.success(id)
             }
+            "transceive" -> {
+                val capdu = call.argument<String>("capdu") ?: ""
+                val rapdu = nfcController?.transceiveApdu(capdu)
+                result.success(rapdu)
+            }
             else -> result.notImplemented()
         }
     }
