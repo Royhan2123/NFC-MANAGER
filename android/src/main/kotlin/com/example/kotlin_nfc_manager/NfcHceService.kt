@@ -5,53 +5,57 @@ import android.os.Bundle
 import android.util.Log
 
 /**
- * Host Card Emulation (HCE) Service.
- * This allows the Android device to act as an NFC Smart Card.
+ * Host Card Emulation (HCE) Service - Version 2.0
+ * Improved state handling and professional response formatting.
  */
 class NfcHceService : HostApduService() {
 
     companion object {
         private const val TAG = "NfcHceService"
-        
-        // Example AID for our Pro Package (must match apduservice.xml)
-        private const val AID = "F0010203040506"
-        
-        // Command for SELECT AID
-        private val SELECT_APDU = byteArrayOf(
-            0x00.toByte(), 0xA4.toByte(), 0x04.toByte(), 0x00.toByte(), 
-            0x07.toByte(), // length
-            0xF0.toByte(), 0x01.toByte(), 0x02.toByte(), 0x03.toByte(), 0x04.toByte(), 0x05.toByte(), 0x06.toByte()
-        )
-        
-        private val SUCCESS_RESPONSE = byteArrayOf(0x90.toByte(), 0x00.toByte())
-        private val ERROR_RESPONSE = byteArrayOf(0x6F.toByte(), 0x00.toByte())
+        private val SUCCESS_SW = byteArrayOf(0x90.toByte(), 0x00.toByte())
+        private val FAILURE_SW = byteArrayOf(0x6F.toByte(), 0x00.toByte())
+        private val UNKNOWN_SW = byteArrayOf(0x6D.toByte(), 0x00.toByte())
     }
 
-    /**
-     * Called when a reader sends an APDU to our phone.
-     */
+    private var sessionActive = false
+
     override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray {
-        if (commandApdu == null) return ERROR_RESPONSE
+        if (commandApdu == null) return FAILURE_SW
 
         val hexCommand = commandApdu.joinToString("") { "%02X".format(it) }
-        Log.d(TAG, "Received APDU: $hexCommand")
+        Log.d(TAG, "Incoming APDU: $hexCommand")
 
-        // Check if it's a SELECT AID command
-        return if (commandApdu.contentEquals(SELECT_APDU)) {
-            Log.i(TAG, "AID Selected! Returning cloned identity.")
+        // 1. Handle SELECT AID (Standard ISO 7816-4)
+        if (isSelectAidCommand(commandApdu)) {
+            sessionActive = true
+            Log.i(TAG, "AID Selected. Opening Secure Session.")
             
-            // Retrieve the captured identity from SharedPreferences
-            val prefs = getSharedPreferences("nfc_cloner", MODE_PRIVATE)
-            val identityString = prefs.getString("cloned_identity", "NFC-PRO-DEFAULT-ID") ?: "NFC-PRO-DEFAULT-ID"
+            val prefs = getSharedPreferences("NfcProPrefs", MODE_PRIVATE)
+            val identity = prefs.getString("cloned_identity", "NFC-PRO-GENERIC") ?: "NFC-PRO-GENERIC"
             
-            val identity = identityString.toByteArray()
-            identity + SUCCESS_RESPONSE
-        } else {
-            SUCCESS_RESPONSE
+            return identity.toByteArray() + SUCCESS_SW
         }
+
+        // 2. Handle Custom Data Requests (if session is active)
+        if (sessionActive) {
+            // Here you could add logic for AUTH, READ_BINARY, etc.
+            // For now, return generic success for any command in active session
+            return SUCCESS_SW
+        }
+
+        return UNKNOWN_SW
     }
 
     override fun onDeactivated(reason: Int) {
-        Log.d(TAG, "HCE Deactivated: reason=$reason")
+        Log.d(TAG, "HCE Session Deactivated: reason=$reason")
+        sessionActive = false
+    }
+
+    private fun isSelectAidCommand(apdu: ByteArray): Boolean {
+        return apdu.size >= 4 && 
+               apdu[0] == 0x00.toByte() && 
+               apdu[1] == 0xA4.toByte() && 
+               apdu[2] == 0x04.toByte() && 
+               apdu[3] == 0x00.toByte()
     }
 }

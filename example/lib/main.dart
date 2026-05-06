@@ -42,11 +42,10 @@ class _NfcDashboardState extends State<NfcDashboard> {
   }
 
   Future<void> _checkHardware() async {
-    final nfc = await NfcPro.isAvailable();
-    final hce = await NfcPro.supportsEmulation();
+    final support = await NfcPro.checkSupport();
     setState(() {
-      _isNfcAvailable = nfc;
-      _isHceSupported = hce;
+      _isNfcAvailable = support.isAvailable;
+      _isHceSupported = support.isHceSupported;
     });
   }
 

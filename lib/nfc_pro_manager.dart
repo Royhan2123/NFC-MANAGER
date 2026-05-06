@@ -11,6 +11,14 @@ enum NfcErrorType {
   unknown
 }
 
+/// Represents the hardware capabilities of the device.
+class NfcSupport {
+  final bool isAvailable;
+  final bool isHceSupported;
+
+  NfcSupport({required this.isAvailable, required this.isHceSupported});
+}
+
 /// Represents a discovered NFC tag with structured data.
 class NfcTag {
   final String uid;
@@ -28,43 +36,52 @@ class NfcTag {
   }
 }
 
-/// Professional NFC Manager API with Enterprise Session Control.
+/// Industry-Grade NFC Manager SDK.
 class NfcPro {
   static const MethodChannel _methodChannel = MethodChannel('com.nfcpro/methods');
   static const EventChannel _eventChannel = EventChannel('com.nfcpro/events');
 
-  /// Checks if NFC hardware is available and enabled.
-  static Future<bool> isAvailable() async {
-    final bool? available = await _methodChannel.invokeMethod('isAvailable');
-    return available ?? false;
+  static StreamSubscription? _sessionSubscription;
+  static Timer? _sessionTimer;
+
+  /// Checks detailed hardware capabilities.
+  static Future<NfcSupport> checkSupport() async {
+    final bool available = await _methodChannel.invokeMethod('isAvailable') ?? false;
+    final bool hce = await _methodChannel.invokeMethod('supportsEmulation') ?? false;
+    return NfcSupport(isAvailable: available, isHceSupported: hce);
   }
 
-  /// Verifies if the device supports Host Card Emulation (HCE).
-  static Future<bool> supportsEmulation() async {
-    final bool? supported = await _methodChannel.invokeMethod('supportsEmulation');
-    return supported ?? false;
-  }
-
-  /// Starts a professional NFC session with optional [timeout].
-  /// [onDiscovered]: Callback for when a tag is detected.
-  /// [onError]: Callback for session-related errors.
-  /// [timeout]: Duration before the session automatically closes (Optional).
-  ///
-  /// ATTENTION: Avoid using this simultaneously with [onTagDiscovered] stream
-  /// unless you need specific localized logic alongside a global listener.
+  /// Starts a professional NFC session with proper lifecycle management.
+  /// 
+  /// The session will automatically handle data routing and cleanup.
   static Future<void> startSession({
-    Function(NfcTag)? onDiscovered,
+    required Function(NfcTag) onDiscovered,
     Function(NfcException)? onError,
     Duration? timeout,
   }) async {
+    // 1. Cleanup existing session if any
+    await stopSession();
+
     try {
+      // 2. Start native scanning
       await _methodChannel.invokeMethod('startScan');
-      
+
+      // 3. Bind the local listener to the global stream
+      _sessionSubscription = onTagDiscovered.listen(
+        (tag) => onDiscovered(tag),
+        onError: (e) {
+          if (onError != null) {
+            onError(NfcException.fromPlatformException(e as PlatformException));
+          }
+        },
+      );
+
+      // 4. Handle Timeout
       if (timeout != null) {
-        Timer(timeout, () async {
+        _sessionTimer = Timer(timeout, () async {
           await stopSession();
           if (onError != null) {
-            onError(NfcException("Session timed out", type: NfcErrorType.timeout));
+            onError(NfcException("NFC Session timed out", type: NfcErrorType.timeout, code: "TIMEOUT"));
           }
         });
       }
@@ -77,15 +94,15 @@ class NfcPro {
     }
   }
 
-  /// Stops the current NFC session and releases hardware resources.
+  /// Stops the session and releases all resources (Native & Dart).
   static Future<void> stopSession() async {
-    await _methodChannel.invokeMethod('stopScan');
-  }
+    _sessionTimer?.cancel();
+    _sessionTimer = null;
+    
+    await _sessionSubscription?.cancel();
+    _sessionSubscription = null;
 
-  /// Writes NDEF data (Text/URL) to the currently detected tag.
-  static Future<bool> writeTag(String data) async {
-    final bool? success = await _methodChannel.invokeMethod('writeTag', {'data': data});
-    return success ?? false;
+    await _methodChannel.invokeMethod('stopScan');
   }
 
   /// Sends a raw APDU command to an ISO-DEP tag.
@@ -97,13 +114,19 @@ class NfcPro {
     }
   }
 
+  /// Writes NDEF data (Text/URL) to the currently detected tag.
+  static Future<bool> writeTag(String data) async {
+    final bool? success = await _methodChannel.invokeMethod('writeTag', {'data': data});
+    return success ?? false;
+  }
+
   /// Sets the identity string for Identity Emulation (HCE).
   static Future<bool> setEmulationId(String id) async {
     final bool? success = await _methodChannel.invokeMethod('setClonedId', {'id': id});
     return success ?? false;
   }
 
-  /// Global stream that listens to real-time NFC events.
+  /// Global stream for background listeners (if needed).
   static Stream<NfcTag> get onTagDiscovered {
     return _eventChannel
         .receiveBroadcastStream()
@@ -123,7 +146,7 @@ class NfcUtils {
   }
 }
 
-/// Custom Exception with Enterprise-grade error mapping.
+/// Custom Exception for NFC related errors with specific types.
 class NfcException implements Exception {
   final String message;
   final NfcErrorType type;

@@ -2,6 +2,7 @@ package com.example.kotlin_nfc_manager
 
 import android.app.Activity
 import android.content.Context
+import android.nfc.NfcAdapter
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -12,8 +13,8 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 
 /**
- * NfcProPlugin - The bridge between Flutter and Native Android NFC.
- * Exposes all advanced features (HCE, Cloning, Reading, Writing) to Dart.
+ * NfcProPlugin - Version 2.0 (Industry Grade)
+ * Enhanced lifecycle management and robust error reporting.
  */
 class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
@@ -32,7 +33,7 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "com.nfcpro/methods")
         channel.setMethodCallHandler(this)
         
-        // Setup Event Channel for real-time tag data
+        // Setup Event Channel
         eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "com.nfcpro/events")
         eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
@@ -45,88 +46,75 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     override fun onMethodCall(call: MethodCall, result: Result) {
-        when (call.method) {
-            "startScan" -> {
-                nfcController?.startNfcSession()
-                result.success(true)
+        try {
+            when (call.method) {
+                "isAvailable" -> {
+                    val nfcAdapter = NfcAdapter.getDefaultAdapter(context)
+                    result.success(nfcAdapter != null && nfcAdapter.isEnabled)
+                }
+                "supportsEmulation" -> {
+                    val pm = context?.packageManager
+                    val supportsHce = pm?.hasSystemFeature(android.content.pm.PackageManager.FEATURE_NFC_HOST_CARD_EMULATION) ?: false
+                    result.success(supportsHce)
+                }
+                "startScan" -> {
+                    nfcController?.startNfcSession()
+                    result.success(true)
+                }
+                "stopScan" -> {
+                    nfcController?.stopNfcSession()
+                    result.success(true)
+                }
+                "writeTag" -> {
+                    val data = call.argument<String>("data") ?: ""
+                    val success = nfcController?.writeNdef(data) ?: false
+                    result.success(success)
+                }
+                "transceive" -> {
+                    val capdu = call.argument<String>("capdu") ?: ""
+                    val rapdu = nfcController?.transceiveApdu(capdu)
+                    if (rapdu != null) result.success(rapdu) 
+                    else result.error("INVALID_APDU", "APDU transmission failed or timeout", null)
+                }
+                "setClonedId" -> {
+                    val id = call.argument<String>("id") ?: ""
+                    val prefs = context?.getSharedPreferences("NfcProPrefs", Context.MODE_PRIVATE)
+                    prefs?.edit()?.putString("cloned_identity", id)?.apply()
+                    result.success(true)
+                }
+                "getClonedId" -> {
+                    val prefs = context?.getSharedPreferences("NfcProPrefs", Context.MODE_PRIVATE)
+                    result.success(prefs?.getString("cloned_identity", ""))
+                }
+                else -> result.notImplemented()
             }
-            "stopScan" -> {
-                nfcController?.stopNfcSession()
-                result.success(true)
-            }
-            "writeTag" -> {
-                val data = call.argument<String>("data") ?: ""
-                val success = nfcController?.writeNdef(data) ?: false
-                result.success(success)
-            }
-            "setClonedId" -> {
-                val id = call.argument<String>("id") ?: ""
-                val prefs = context?.getSharedPreferences("nfc_cloner", Context.MODE_PRIVATE)
-                prefs?.edit()?.putString("cloned_identity", id)?.apply()
-                result.success(true)
-            }
-            "getClonedId" -> {
-                val prefs = context?.getSharedPreferences("nfc_cloner", Context.MODE_PRIVATE)
-                val id = prefs?.getString("cloned_identity", "")
-                result.success(id)
-            }
-            "isAvailable" -> {
-                val nfcAdapter = android.nfc.NfcAdapter.getDefaultAdapter(context)
-                result.success(nfcAdapter != null && nfcAdapter.isEnabled)
-            }
-            "supportsEmulation" -> {
-                val pm = context?.packageManager
-                val supportsHce = pm?.hasSystemFeature(android.content.pm.PackageManager.FEATURE_NFC_HOST_CARD_EMULATION) ?: false
-                result.success(supportsHce)
-            }
-            "transceive" -> {
-                val capdu = call.argument<String>("capdu") ?: ""
-                val rapdu = nfcController?.transceiveApdu(capdu)
-                result.success(rapdu)
-            }
-            else -> result.notImplemented()
+        } catch (e: Exception) {
+            result.error("NATIVE_ERROR", e.message, e.stackTraceToString())
         }
-    }
-
-    // --- ActivityAware Implementation ---
-
-    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-        activity = binding.activity
-        nfcController = NfcController(activity!!)
-        
-        // Forward tag events to Flutter
-        nfcController?.onTagScanned = { uid, type, content ->
-            val data = mapOf(
-                "uid" to uid,
-                "type" to type,
-                "content" to content
-            )
-            activity?.runOnUiThread {
-                eventSink?.success(data)
-            }
-        }
-        
-        nfcController?.onErrorEvent = { message ->
-            activity?.runOnUiThread {
-                eventSink?.error("NFC_ERROR", message, null)
-            }
-        }
-    }
-
-    override fun onDetachedFromActivityForConfigChanges() {
-        activity = null
-    }
-
-    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
-        activity = binding.activity
-    }
-
-    override fun onDetachedFromActivity() {
-        activity = null
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
-        eventChannel.setStreamHandler(null)
+    }
+
+    // --- Activity Lifecycle Management ---
+
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        activity = binding.activity
+        nfcController = NfcController(activity!!, eventSink)
+    }
+
+    override fun onDetachedFromActivityForConfigChanges() {
+        onDetachedFromActivity()
+    }
+
+    override fun ReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        onAttachedToActivity(binding)
+    }
+
+    override fun onDetachedFromActivity() {
+        nfcController?.stopNfcSession()
+        activity = null
+        nfcController = null
     }
 }
