@@ -1,6 +1,16 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
+/// Supported types of NFC errors for structured handling.
+enum NfcErrorType {
+  notSupported,
+  disabled,
+  timeout,
+  connectionLost,
+  invalidApdu,
+  unknown
+}
+
 /// Represents a discovered NFC tag with structured data.
 class NfcTag {
   final String uid;
@@ -35,14 +45,29 @@ class NfcPro {
     return supported ?? false;
   }
 
-  /// Starts a professional NFC session.
-  /// Recommended for controlled flows (e.g. login, payment).
+  /// Starts a professional NFC session with optional [timeout].
+  /// [onDiscovered]: Callback for when a tag is detected.
+  /// [onError]: Callback for session-related errors.
+  /// [timeout]: Duration before the session automatically closes (Optional).
+  ///
+  /// ATTENTION: Avoid using this simultaneously with [onTagDiscovered] stream
+  /// unless you need specific localized logic alongside a global listener.
   static Future<void> startSession({
     Function(NfcTag)? onDiscovered,
     Function(NfcException)? onError,
+    Duration? timeout,
   }) async {
     try {
       await _methodChannel.invokeMethod('startScan');
+      
+      if (timeout != null) {
+        Timer(timeout, () async {
+          await stopSession();
+          if (onError != null) {
+            onError(NfcException("Session timed out", type: NfcErrorType.timeout));
+          }
+        });
+      }
     } on PlatformException catch (e) {
       if (onError != null) {
         onError(NfcException.fromPlatformException(e));
@@ -53,7 +78,6 @@ class NfcPro {
   }
 
   /// Stops the current NFC session and releases hardware resources.
-  /// Always call this when the transaction is finished to preserve battery.
   static Future<void> stopSession() async {
     await _methodChannel.invokeMethod('stopScan');
   }
@@ -80,7 +104,6 @@ class NfcPro {
   }
 
   /// Global stream that listens to real-time NFC events.
-  /// Useful for persistent background listeners.
   static Stream<NfcTag> get onTagDiscovered {
     return _eventChannel
         .receiveBroadcastStream()
@@ -90,20 +113,17 @@ class NfcPro {
 
 /// SDK Helper for building and parsing APDU commands.
 class NfcUtils {
-  /// Builds a standard ISO-DEP 'SELECT AID' APDU command.
-  /// [aid] should be a hex string (e.g., "A000000003000000").
   static String buildSelectAid(String aid) {
     final String lc = (aid.length ~/ 2).toRadixString(16).padLeft(2, '0');
     return "00A40400$lc${aid}00";
   }
 
-  /// Validates if the response APDU ends with the success code '9000'.
   static bool isSuccess(String? rapdu) {
     return rapdu != null && rapdu.endsWith("9000");
   }
 }
 
-/// Custom Exception for NFC related errors with specific types.
+/// Custom Exception with Enterprise-grade error mapping.
 class NfcException implements Exception {
   final String message;
   final NfcErrorType type;
@@ -127,5 +147,3 @@ class NfcException implements Exception {
   @override
   String toString() => 'NfcException [$type]: $message';
 }
-
-enum NfcErrorType { notSupported, disabled, timeout, connectionLost, invalidApdu, unknown }
