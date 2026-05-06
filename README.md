@@ -1,86 +1,80 @@
 # NFC Pro Manager 🚀
 
-The enterprise-grade NFC solution for Flutter. Engineered for low-latency communication, advanced **ISO-DEP (APDU)** interaction, and **Identity Emulation (HCE)** with virtual AID routing.
+The enterprise-grade NFC SDK for Flutter. Engineered for low-latency communication, advanced **ISO-DEP (APDU)** interaction, and **Identity Emulation (HCE)** with virtual AID routing.
 
 ---
 
-## 🌟 Architecture Overview
+## 🏗 Architecture Overview
 
-```mermaid
-graph TD
-    A[Flutter App] -->|NfcPro API| B(NfcPro Dart Package)
-    B -->|MethodChannel| C{Platform Bridge}
-    C -->|Android| D[NfcAdapter / HCE Service]
-    C -->|iOS| E[CoreNFC Framework]
-    D -->|ISO-DEP| F((Physical NFC Tag / Reader))
-    E -->|NDEF| F
+```text
+[ Flutter Application ]
+          |
+    [ NfcPro SDK ]  <--- (Strongly Typed API)
+          |
+   [ Platform Channel ]
+    /            \
+[ Android ]    [ iOS ]
+    |             |
+[HCE / IsoDep] [CoreNFC]
+    |             |
+[   Physical Hardware  ]
 ```
 
 ---
 
-## 🏆 Feature Comparison
-
-| Feature | NFC Pro | Standard NFC Libs |
-| :--- | :---: | :---: |
-| **Identity Emulation (HCE)** | ✅ (Full) | ❌ / ⚠️ (Limited) |
-| **APDU Transceive (ISO-DEP)** | ✅ (Native Speed) | ⚠️ (Slow/Buggy) |
-| **Lifecycle Session Control** | ✅ (Start/Stop) | ❌ (Persistent Only) |
-| **Strongly Typed Models** | ✅ (NfcTag Class) | ❌ (Raw Map) |
-| **Structured Exceptions** | ✅ (Enums) | ❌ (String only) |
-
----
-
-## 🛡️ Identity Emulation (HCE) Deep-Dive
-
-Unlike basic UID spoofing, **NFC Pro Manager** utilizes the Android **Host Card Emulation (HCE)** stack. It allows your device to act as a virtual smart card.
-- **AID Routing**: The service listens for specific Application Identifiers (AIDs).
-- **APDU Handling**: Supports bidirectional APDU exchange for secure authentication.
-- **Technology Support**: Emulates ISO/IEC 7816-4 based cards.
+## 🎯 Designed For
+- **Enterprise Access Control**: Emulate employee badges and security keys.
+- **Smart Card Research**: Deep-dive into APDU communication and response handling.
+- **Authentication Systems**: Build secure challenge-response login flows.
 
 ---
 
 ## ⚡ Performance Metrics
-
 - **Discovery Latency**: < 250ms from physical contact to Dart event.
 - **APDU Round-trip**: 50ms - 150ms (average overhead ~5ms).
 - **Emulation Warm-up**: Instant (once ID is set).
 
 ---
 
-## 🔐 Advanced Use Case: Secure NFC Login
+## 🔄 Session Lifecycle Management
 
-Build a corporate-grade login system using a challenge-response flow.
+Choose the listener that fits your architecture:
+- **`startSession()`**: Recommended for controlled, one-time flows (e.g., specific payment or login). Automatically scoped.
+- **`onTagDiscovered`**: Recommended for global, persistent listeners (background-style scanning).
+
+**Cleanup**: Always call `NfcPro.stopSession()` when the operation is complete to release hardware resources and save battery.
+
+---
+
+## 📖 Deep Dive: APDU SDK Helpers
+
+NFC Pro Manager acts as an SDK, providing helpers to build professional APDU commands.
 
 ```dart
-// 1. Check if hardware is ready
-if (await NfcPro.isAvailable()) {
-  
-  // 2. Start a controlled session
-  await NfcPro.startSession(
-    onDiscovered: (NfcTag tag) async {
-      // 3. Generate a security challenge
-      String challenge = "00A4040008A000000003000000"; // Example Select AID
-      
-      try {
-        // 4. Send challenge to Smart Card via APDU
-        String? response = await NfcPro.transceive(challenge);
-        
-        if (response != null && response.endsWith("9000")) {
-          print("Authentication Successful!");
-        }
-      } on NfcException catch (e) {
-        print("Comm Error: ${e.type}");
-      }
-    },
-    onError: (e) => print("Session Error: ${e.message}"),
-  );
+// 1. Build a SELECT AID command easily
+String aid = "A000000003000000";
+String capdu = NfcUtils.buildSelectAid(aid);
+
+// 2. Transceive
+String? response = await NfcPro.transceive(capdu);
+
+// 3. Verify success (Check for '9000')
+if (NfcUtils.isSuccess(response)) {
+  print("Handshake successful!");
 }
 ```
 
 ---
 
-## ⚠️ Platform Limitations & Disclaimers
+## 🛡️ Identity Emulation (HCE)
 
+- **AID Routing**: The service listens for specific Application Identifiers (AIDs).
+- **APDU Handling**: Supports bidirectional APDU exchange for secure authentication.
+- **Technology Support**: Emulates ISO/IEC 7816-4 based cards.
+
+---
+
+## ⚠️ Platform Limitations & Disclaimers
 - **Hardware Dependency**: Identity Emulation (HCE) is **Android-only**.
 - **iOS Restrictions**: Apple limits NFC to NDEF and limited ISO-DEP reading only.
 - **Encryption**: This library provides the transport layer. Encrypted sectors require valid security keys to be sent via APDU commands.
@@ -88,8 +82,6 @@ if (await NfcPro.isAvailable()) {
 ---
 
 ## 📱 Hardware Verification
-
-Always verify hardware capabilities before initiating sessions:
 ```dart
 bool hasNfc = await NfcPro.isAvailable();
 bool hasHce = await NfcPro.supportsEmulation();

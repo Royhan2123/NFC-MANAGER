@@ -1,16 +1,6 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
-/// Supported types of NFC errors for structured handling.
-enum NfcErrorType {
-  notSupported,
-  disabled,
-  timeout,
-  connectionLost,
-  invalidApdu,
-  unknown
-}
-
 /// Represents a discovered NFC tag with structured data.
 class NfcTag {
   final String uid;
@@ -33,7 +23,7 @@ class NfcPro {
   static const MethodChannel _methodChannel = MethodChannel('com.nfcpro/methods');
   static const EventChannel _eventChannel = EventChannel('com.nfcpro/events');
 
-  /// Checks if NFC hardware is available and enabled on the device.
+  /// Checks if NFC hardware is available and enabled.
   static Future<bool> isAvailable() async {
     final bool? available = await _methodChannel.invokeMethod('isAvailable');
     return available ?? false;
@@ -46,7 +36,7 @@ class NfcPro {
   }
 
   /// Starts a professional NFC session.
-  /// Use this for clean session lifecycle management.
+  /// Recommended for controlled flows (e.g. login, payment).
   static Future<void> startSession({
     Function(NfcTag)? onDiscovered,
     Function(NfcException)? onError,
@@ -63,6 +53,7 @@ class NfcPro {
   }
 
   /// Stops the current NFC session and releases hardware resources.
+  /// Always call this when the transaction is finished to preserve battery.
   static Future<void> stopSession() async {
     await _methodChannel.invokeMethod('stopScan');
   }
@@ -82,18 +73,33 @@ class NfcPro {
     }
   }
 
-  /// Sets the identity string for HCE (Identity Emulation).
-  /// [id] is the string identity that will be processed by the internal AID routing.
+  /// Sets the identity string for Identity Emulation (HCE).
   static Future<bool> setEmulationId(String id) async {
     final bool? success = await _methodChannel.invokeMethod('setClonedId', {'id': id});
     return success ?? false;
   }
 
-  /// Stream that listens to real-time NFC events.
+  /// Global stream that listens to real-time NFC events.
+  /// Useful for persistent background listeners.
   static Stream<NfcTag> get onTagDiscovered {
     return _eventChannel
         .receiveBroadcastStream()
         .map((event) => NfcTag.fromMap(Map<String, dynamic>.from(event)));
+  }
+}
+
+/// SDK Helper for building and parsing APDU commands.
+class NfcUtils {
+  /// Builds a standard ISO-DEP 'SELECT AID' APDU command.
+  /// [aid] should be a hex string (e.g., "A000000003000000").
+  static String buildSelectAid(String aid) {
+    final String lc = (aid.length ~/ 2).toRadixString(16).padLeft(2, '0');
+    return "00A40400$lc${aid}00";
+  }
+
+  /// Validates if the response APDU ends with the success code '9000'.
+  static bool isSuccess(String? rapdu) {
+    return rapdu != null && rapdu.endsWith("9000");
   }
 }
 
@@ -121,3 +127,5 @@ class NfcException implements Exception {
   @override
   String toString() => 'NfcException [$type]: $message';
 }
+
+enum NfcErrorType { notSupported, disabled, timeout, connectionLost, invalidApdu, unknown }
