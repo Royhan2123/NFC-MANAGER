@@ -19,7 +19,7 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
         fun onTagDiscovered(uid: String, cardType: String, content: String?)
         fun onIsoDepDetected(isoDep: IsoDep)
         fun onLogGenerated(message: String)
-        fun onError(code: String, message: String)
+        fun onError(code: String, message: String) // Structured Error
     }
 
     fun setCallback(callback: NfcCallback) {
@@ -40,11 +40,14 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
         val options = android.os.Bundle()
         options.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 250)
 
+        // Fix 2: Complete Reader Flags (including NFC-F and NFC-V)
         nfcAdapter?.enableReaderMode(
             activity,
             this,
             NfcAdapter.FLAG_READER_NFC_A or 
             NfcAdapter.FLAG_READER_NFC_B or 
+            NfcAdapter.FLAG_READER_NFC_F or 
+            NfcAdapter.FLAG_READER_NFC_V or 
             NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
             options
         )
@@ -52,6 +55,7 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
 
     fun stopSession() {
         nfcAdapter?.disableReaderMode(activity)
+        currentTag = null
     }
 
     override fun onTagDiscovered(tag: Tag?) {
@@ -66,8 +70,6 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
             val ndef = Ndef.get(tag)
             ndef?.connect()
             val message = ndef?.cachedNdefMessage
-            
-            // Fix IMPROVEMENT 2: Proper NDEF Text Parsing (handling language code header)
             ndefContent = message?.records?.getOrNull(0)?.let { record ->
                 val payload = record.payload
                 if (payload.isNotEmpty()) {
@@ -94,11 +96,15 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
         val tag = currentTag ?: return null
         val isoDep = IsoDep.get(tag) ?: return null
         
+        // Fix 3: Proper Connection Management (using finally to close)
         return try {
             if (!isoDep.isConnected) isoDep.connect()
             isoDep.transceive(command)
         } catch (e: Exception) {
+            Log.e("NfcCoreManager", "Transceive error: ${e.message}")
             null
+        } finally {
+            try { isoDep.close() } catch (_: Exception) {}
         }
     }
 
@@ -120,7 +126,7 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
 
     fun getCurrentTag(): Tag? = currentTag
 
-    fun byteArrayToHexString(bytes: ByteArray): String = bytes.joinToString("") { "%02X".format(it) }
+    private fun byteArrayToHexString(bytes: ByteArray): String = bytes.joinToString("") { "%02X".format(it) }
 
     fun hexStringToByteArray(s: String): ByteArray {
         val len = s.length

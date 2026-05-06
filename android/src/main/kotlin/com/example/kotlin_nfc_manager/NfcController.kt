@@ -10,6 +10,10 @@ class NfcController(private val activity: Activity) : NfcCoreManager.NfcCallback
     private val nfcCoreManager = NfcCoreManager(activity)
     private var eventSink: EventChannel.EventSink? = null
     private var lastUid: String? = null
+    
+    // Fix 6: Native Session State
+    @Volatile private var isSessionActive = false
+    @Volatile private var isProcessing = false
 
     init {
         nfcCoreManager.setCallback(this)
@@ -20,22 +24,27 @@ class NfcController(private val activity: Activity) : NfcCoreManager.NfcCallback
     }
 
     fun startNfcSession() {
+        if (isSessionActive) return
+        isSessionActive = true
         lastUid = null
         nfcCoreManager.startSession()
     }
 
     fun stopNfcSession() {
+        isSessionActive = false
         nfcCoreManager.stopSession()
     }
 
     fun transceiveApdu(commandHex: String): String? {
-        val commandBytes = nfcCoreManager.hexStringToByteArray(commandHex)
-        val responseBytes = nfcCoreManager.transceiveApdu(commandBytes)
+        if (isProcessing) return null
+        isProcessing = true
         
-        return if (responseBytes != null) {
-            nfcCoreManager.byteArrayToHexString(responseBytes)
-        } else {
-            null
+        return try {
+            val commandBytes = nfcCoreManager.hexStringToByteArray(commandHex)
+            val responseBytes = nfcCoreManager.transceiveApdu(commandBytes)
+            responseBytes?.let { nfcCoreManager.byteArrayToHexString(it) }
+        } finally {
+            isProcessing = false
         }
     }
 
@@ -45,6 +54,7 @@ class NfcController(private val activity: Activity) : NfcCoreManager.NfcCallback
     }
 
     override fun onTagDiscovered(uid: String, cardType: String, content: String?) {
+        if (!isSessionActive) return
         if (uid == lastUid) return
         lastUid = uid
 
@@ -61,6 +71,7 @@ class NfcController(private val activity: Activity) : NfcCoreManager.NfcCallback
 
     override fun onIsoDepDetected(isoDep: IsoDep) {
         try {
+            // Fix 3: Standard timeout
             isoDep.timeout = 5000 
         } catch (e: Exception) {
             Log.e("NfcController", "Failed to set IsoDep timeout")
@@ -71,9 +82,10 @@ class NfcController(private val activity: Activity) : NfcCoreManager.NfcCallback
         Log.d("NfcController", "Log: $message")
     }
 
-    override fun onError(message: String) {
+    // Fix 1: Corrected signature to include code for better Dart mapping
+    override fun onError(code: String, message: String) {
         activity.runOnUiThread {
-            eventSink?.error("NFC_ERROR", message, null)
+            eventSink?.error(code, message, null)
         }
     }
 }
