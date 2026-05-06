@@ -16,6 +16,7 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
     private var eventSink: EventChannel.EventSink? = null
     private var lastUid: String? = null
     
+    // @Synchronized removed from here (Property cannot be synchronized in Kotlin)
     private val pendingEvents = mutableListOf<Map<String, Any?>>()
     
     private val isSessionActive = AtomicBoolean(false)
@@ -31,18 +32,21 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
         if (sink == null) return
         
         val currentSink = sink
-        if (pendingEvents.isNotEmpty()) {
-            val eventsToFlush = ArrayList(pendingEvents)
+        val eventsToFlush: List<Map<String, Any?>>
+        
+        synchronized(pendingEvents) {
+            if (pendingEvents.isEmpty()) return
+            eventsToFlush = ArrayList(pendingEvents)
             pendingEvents.clear()
-            
-            activityRef.get()?.runOnUiThread {
-                eventsToFlush.forEach { currentSink.success(it) }
-            }
+        }
+        
+        activityRef.get()?.runOnUiThread {
+            eventsToFlush.forEach { currentSink.success(it) }
         }
     }
 
     fun clearPendingEvents() {
-        synchronized(this) {
+        synchronized(pendingEvents) {
             pendingEvents.clear()
         }
     }
@@ -88,7 +92,6 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
         return nfcCoreManager.writeNdefMessage(tag, message)
     }
 
-    @Synchronized
     override fun onTagDiscovered(uid: String, cardType: String, content: String?) {
         if (!isSessionActive.get()) return
         if (uid == lastUid) return
@@ -103,7 +106,7 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
         val currentSink = eventSink
         activityRef.get()?.runOnUiThread {
             if (currentSink == null) {
-                synchronized(this) {
+                synchronized(pendingEvents) {
                     pendingEvents.add(eventData)
                 }
             } else {

@@ -141,7 +141,8 @@ class NfcCoreManager(activity: Activity) : NfcAdapter.ReaderCallback {
 
     fun getCurrentTag(): Tag? = currentTag
 
-    private fun byteArrayToHexString(bytes: ByteArray): String = bytes.joinToString("") { "%02X".format(it) }
+    // Visibility changed to internal for access by NfcController
+    internal fun byteArrayToHexString(bytes: ByteArray): String = bytes.joinToString("") { "%02X".format(it) }
 
     fun hexStringToByteArray(s: String): ByteArray {
         val len = s.length
