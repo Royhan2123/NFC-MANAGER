@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2026-05-06
+
+### Removed
+- Removed all native Android Activities to prevent UI/Manifest conflicts with Flutter host apps.
+- The plugin is now headless, focusing purely on NFC core logic and background services.
+
 ## [1.0.2] - 2026-05-06
 
 ### Improved

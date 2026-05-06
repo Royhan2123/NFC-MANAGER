@@ -1,53 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    
     <uses-permission android:name="android.permission.NFC" />
     <uses-feature android:name="android.hardware.nfc" android:required="true" />
 
     <application>
-        <activity
-            android:name=".DashboardActivity"
-            android:exported="true" />
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="false"
-            android:label="Secure Access" />
-        
-        <activity 
-            android:name=".RegisterActivity"
-            android:exported="false"
-            android:label="Register Card" />
-
-        <activity
-            android:name=".VCardActivity"
-            android:exported="false"
-            android:label="Digital vCard" />
-
-        <activity
-            android:name=".EMoneyActivity"
-            android:exported="false"
-            android:label="E-Money Reader" />
-
-        <activity
-            android:name=".EmulationActivity"
-            android:exported="false"
-            android:label="Identity Emulation" />
-
-        <activity
-            android:name=".ClonerActivity"
-            android:exported="false"
-            android:label="NFC Cloner" />
-
-        <activity
-            android:name=".WriterActivity"
-            android:exported="false"
-            android:label="Tag Writer" />
-
+        <!-- HCE Service: Wajib ada di manifest agar fitur kloning kartu bisa jalan di background -->
         <service
-            android:name=".NfcHceService"
+            android:name="com.example.kotlin_nfc_manager.NfcHceService"
             android:exported="true"
-            android:label="@string/hce_service_desc"
+            android:label="NFC Pro Emulation Service"
             android:permission="android.permission.BIND_NFC_SERVICE">
             <intent-filter>
                 <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
