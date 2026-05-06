@@ -1,14 +1,15 @@
 package com.example.kotlin_nfc_manager
 
 import android.app.Activity
+import android.nfc.TagLostException
 import android.nfc.tech.IsoDep
 import android.util.Log
 import io.flutter.plugin.common.EventChannel
 import java.lang.ref.WeakReference
+import java.util.concurrent.atomic.AtomicBoolean
 
 class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
 
-    // Fix 2: Memory Safety using WeakReference to prevent Activity leaks
     private val activityRef = WeakReference(activity)
     private val nfcCoreManager = NfcCoreManager(activity)
     
@@ -18,8 +19,9 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
     @Synchronized
     private val pendingEvents = mutableListOf<Map<String, Any?>>()
     
-    @Volatile private var isSessionActive = false
-    @Volatile private var isProcessing = false
+    // Fix 1: Atomic Concurrency Control
+    private val isSessionActive = AtomicBoolean(false)
+    private val isProcessing = AtomicBoolean(false)
 
     init {
         nfcCoreManager.setCallback(this)
@@ -30,7 +32,6 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
         this.eventSink = sink
         if (sink == null) return
         
-        // Fix 1: Capture current sink reference before jumping to UI thread
         val currentSink = sink
         if (pendingEvents.isNotEmpty()) {
             val eventsToFlush = ArrayList(pendingEvents)
@@ -42,28 +43,48 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
         }
     }
 
+    // Fix 5: Clear Buffer on Cancel
+    fun clearPendingEvents() {
+        synchronized(this) {
+            pendingEvents.clear()
+        }
+    }
+
     fun startNfcSession() {
-        if (isSessionActive) return
-        isSessionActive = true
+        if (!isSessionActive.compareAndSet(false, true)) return
         lastUid = null
         nfcCoreManager.startSession()
     }
 
     fun stopNfcSession() {
-        isSessionActive = false
+        isSessionActive.set(false)
         nfcCoreManager.stopSession()
     }
 
     fun transceiveApdu(commandHex: String): String? {
-        if (isProcessing) return null
-        isProcessing = true
+        // Fix 1: Atomic Lock-Free Check
+        if (!isProcessing.compareAndSet(false, true)) return null
         
         return try {
             val commandBytes = nfcCoreManager.hexStringToByteArray(commandHex)
             val responseBytes = nfcCoreManager.transceiveApdu(commandBytes)
             responseBytes?.let { nfcCoreManager.byteArrayToHexString(it) }
+        } catch (e: TagLostException) {
+            // Fix 2: Explicit TagLost notification
+            onError("TAG_LOST", "Connection lost during APDU transmission")
+            null
         } finally {
-            isProcessing = false
+            isProcessing.set(false)
+        }
+    }
+
+    fun isTagConnected(): Boolean {
+        return try {
+            nfcCoreManager.getCurrentTag()?.let { tag ->
+                IsoDep.get(tag)?.isConnected == true
+            } ?: false
+        } catch (_: Exception) {
+            false
         }
     }
 
@@ -74,7 +95,7 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
 
     @Synchronized
     override fun onTagDiscovered(uid: String, cardType: String, content: String?) {
-        if (!isSessionActive) return
+        if (!isSessionActive.get()) return
         if (uid == lastUid) return
         lastUid = uid
 
@@ -84,7 +105,6 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
             "content" to content
         )
         
-        // Fix 1: Capture current sink for thread-safe UI thread delivery
         val currentSink = eventSink
         activityRef.get()?.runOnUiThread {
             if (currentSink == null) {

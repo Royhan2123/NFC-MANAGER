@@ -1,6 +1,6 @@
 name: nfc_pro_manager
 description: The industry-grade NFC SDK for Flutter. Supports robust Host Card Emulation (HCE), Identity Emulation, NDEF Read/Write, and ISO-DEP APDU communication with enterprise lifecycle management.
-version: 2.8.0
+version: 2.9.0
 homepage: https://github.com/Royhan2123/NFC-MANAGER
 repository: https://github.com/Royhan2123/NFC-MANAGER
 issue_tracker: https://github.com/Royhan2123/NFC-MANAGER/issues

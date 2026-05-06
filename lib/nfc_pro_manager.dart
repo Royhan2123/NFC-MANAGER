@@ -38,10 +38,10 @@ class NfcTag {
   }
 }
 
-/// The Diamond Standard NFC Manager SDK (Version 2.8.0).
+/// The Ultimate NFC Manager SDK (Version 2.9.0).
 /// 
-/// engineered for high-security environments, automated lifecycle handling,
-/// and bank-grade HCE compliance.
+/// engineered for high-concurrency environments, bank-grade HCE compliance,
+/// and cross-platform reliability (Android & iOS).
 class NfcPro {
   static const MethodChannel _methodChannel = MethodChannel('com.nfcpro/methods');
   static const EventChannel _eventChannel = EventChannel('com.nfcpro/events');
@@ -71,14 +71,15 @@ class NfcPro {
 
   /// Starts a professional NFC session with robust lifecycle management.
   /// 
-  /// The session automatically suspends when the app goes to the background.
+  /// [onDiscovered] is called when a tag is detected.
+  /// This method automatically manages the stream subscription.
   static Future<void> startSession({
     required Function(NfcTag) onDiscovered,
     Function(NfcException)? onError,
     Duration? timeout,
   }) async {
     if (_state == NfcSessionState.starting || _state == NfcSessionState.active) {
-      if (_debugMode) print("[NfcPro] Session Guard: A session is already active.");
+      if (_debugMode) print("[NfcPro] Session already active.");
       return;
     }
 
@@ -142,15 +143,21 @@ class NfcPro {
   }
 
   /// Runs a sequence of APDU commands as a script.
-  /// 
-  /// Returns a list of responses for each command.
   static Future<List<String?>> runScript(List<String> script) async {
     final List<String?> responses = [];
     for (final command in script) {
-      final response = await transceive(command);
-      responses.add(response);
+      responses.add(await transceive(command));
     }
     return responses;
+  }
+
+  /// Checks if the currently detected tag is still within radio range.
+  static Future<bool> isTagPresent() async {
+    try {
+      return await _methodChannel.invokeMethod('isTagPresent') ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Writes NDEF data to the currently detected tag.
