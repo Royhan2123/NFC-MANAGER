@@ -14,12 +14,13 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
     private var nfcAdapter: NfcAdapter? = NfcAdapter.getDefaultAdapter(activity)
     private var callback: NfcCallback? = null
     private var currentTag: Tag? = null
+    private var activeIsoDep: IsoDep? = null
 
     interface NfcCallback {
         fun onTagDiscovered(uid: String, cardType: String, content: String?)
         fun onIsoDepDetected(isoDep: IsoDep)
         fun onLogGenerated(message: String)
-        fun onError(code: String, message: String) // Structured Error
+        fun onError(code: String, message: String)
     }
 
     fun setCallback(callback: NfcCallback) {
@@ -31,7 +32,6 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
             callback?.onError("NOT_SUPPORTED", "NFC is not supported")
             return
         }
-
         if (!nfcAdapter!!.isEnabled) {
             callback?.onError("DISABLED", "NFC is disabled")
             return
@@ -40,7 +40,6 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
         val options = android.os.Bundle()
         options.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 250)
 
-        // Fix 2: Complete Reader Flags (including NFC-F and NFC-V)
         nfcAdapter?.enableReaderMode(
             activity,
             this,
@@ -55,56 +54,73 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
 
     fun stopSession() {
         nfcAdapter?.disableReaderMode(activity)
+        closeActiveConnection()
         currentTag = null
+    }
+
+    private fun closeActiveConnection() {
+        try {
+            activeIsoDep?.close()
+        } catch (_: Exception) {}
+        activeIsoDep = null
     }
 
     override fun onTagDiscovered(tag: Tag?) {
         if (tag == null) return
+        
+        // New tag discovered, close previous connection
+        closeActiveConnection()
         currentTag = tag
 
         val uid = byteArrayToHexString(tag.id)
         val techList = tag.techList.joinToString(", ")
         
-        var ndefContent: String? = null
+        var parsedContent = ""
         try {
             val ndef = Ndef.get(tag)
             ndef?.connect()
             val message = ndef?.cachedNdefMessage
-            ndefContent = message?.records?.getOrNull(0)?.let { record ->
+            
+            // Fix 4: Improved Multi-Record NDEF Parsing
+            message?.records?.forEach { record ->
                 val payload = record.payload
-                if (payload.isNotEmpty()) {
-                    val langLength = payload[0].toInt() and 0x3F
-                    String(payload, 1 + langLength, payload.size - 1 - langLength)
-                } else null
+                when {
+                    record.tnf == NdefRecord.TNF_WELL_KNOWN && record.type.contentEquals(NdefRecord.RTD_TEXT) -> {
+                        val langLength = payload[0].toInt() and 0x3F
+                        parsedContent += String(payload, 1 + langLength, payload.size - 1 - langLength) + "\n"
+                    }
+                    record.tnf == NdefRecord.TNF_WELL_KNOWN && record.type.contentEquals(NdefRecord.RTD_URI) -> {
+                        parsedContent += "URI: " + String(payload) + "\n"
+                    }
+                }
             }
             ndef?.close()
         } catch (e: Exception) {
-            Log.e("NfcCoreManager", "NDEF Read Error: ${e.message}")
+            Log.e("NfcCoreManager", "NDEF Error: ${e.message}")
         }
 
         val isoDep = IsoDep.get(tag)
         if (isoDep != null) {
+            activeIsoDep = isoDep
             callback?.onIsoDepDetected(isoDep)
         }
 
         activity.runOnUiThread {
-            callback?.onTagDiscovered(uid, techList, ndefContent)
+            callback?.onTagDiscovered(uid, techList, parsedContent.trim())
         }
     }
 
     fun transceiveApdu(command: ByteArray): ByteArray? {
-        val tag = currentTag ?: return null
-        val isoDep = IsoDep.get(tag) ?: return null
+        val isoDep = activeIsoDep ?: return null
         
-        // Fix 3: Proper Connection Management (using finally to close)
+        // Fix 3: Persistent Connection (Keep open for multiple APDUs)
         return try {
             if (!isoDep.isConnected) isoDep.connect()
             isoDep.transceive(command)
         } catch (e: Exception) {
             Log.e("NfcCoreManager", "Transceive error: ${e.message}")
+            closeActiveConnection() // Connection lost
             null
-        } finally {
-            try { isoDep.close() } catch (_: Exception) {}
         }
     }
 

@@ -102,9 +102,7 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activity = binding.activity
-        // Fix DESIGN BUG: Don't inject eventSink in constructor
         nfcController = NfcController(activity!!)
-        // Inject current eventSink if available
         nfcController?.updateEventSink(eventSink)
     }
 
@@ -117,6 +115,7 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     override fun onDetachedFromActivity() {
+        // Fix 2: Explicitly stop session on detach to prevent background usage
         nfcController?.stopNfcSession()
         activity = null
         nfcController = null
