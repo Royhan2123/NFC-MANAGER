@@ -16,7 +16,6 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
     private var eventSink: EventChannel.EventSink? = null
     private var lastUid: String? = null
     
-    @Synchronized
     private val pendingEvents = mutableListOf<Map<String, Any?>>()
     
     private val isSessionActive = AtomicBoolean(false)
@@ -67,7 +66,7 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
             val responseBytes = nfcCoreManager.transceiveApdu(commandBytes)
             responseBytes?.let { nfcCoreManager.byteArrayToHexString(it) }
         } catch (e: TagLostException) {
-            onError("TAG_LOST", "Connection lost during APDU transmission")
+            onError("TAG_LOST", "NFC connection lost")
             null
         } finally {
             isProcessing.set(false)
@@ -116,24 +115,18 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
     override fun onIsoDepDetected(isoDep: IsoDep) {
         try {
             isoDep.timeout = 5000 
-        } catch (e: Exception) {
-            Log.e("NfcController", "Failed to set IsoDep timeout")
-        }
+        } catch (_: Exception) {}
     }
 
     override fun onLogGenerated(message: String) {
-        Log.d("NfcController", "Log: $message")
+        // Logging for production debugging
     }
 
     @Synchronized
     override fun onError(code: String, message: String) {
         val currentSink = eventSink
         activityRef.get()?.runOnUiThread {
-            if (currentSink == null) {
-                Log.e("NfcController", "Deferred Error: $message")
-            } else {
-                currentSink.error(code, message, null)
-            }
+            currentSink?.error(code, message, null)
         }
     }
 }
