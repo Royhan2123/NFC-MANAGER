@@ -93,3 +93,7 @@ Contributions are welcome! Please open an issue or submit a pull request on GitH
 
 ---
 *Built with ❤️ for the Flutter Community.*
+
+---
+Contact me to for enterprise Solution : 
+royhankeren12@gmail.com
