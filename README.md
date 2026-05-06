@@ -4,7 +4,21 @@ The enterprise-grade NFC solution for Flutter. Engineered for low-latency commun
 
 ---
 
-## 🌟 Why NFC Pro Manager?
+## 🌟 Architecture Overview
+
+```mermaid
+graph TD
+    A[Flutter App] -->|NfcPro API| B(NfcPro Dart Package)
+    B -->|MethodChannel| C{Platform Bridge}
+    C -->|Android| D[NfcAdapter / HCE Service]
+    C -->|iOS| E[CoreNFC Framework]
+    D -->|ISO-DEP| F((Physical NFC Tag / Reader))
+    E -->|NDEF| F
+```
+
+---
+
+## 🏆 Feature Comparison
 
 | Feature | NFC Pro | Standard NFC Libs |
 | :--- | :---: | :---: |
@@ -43,7 +57,7 @@ if (await NfcPro.isAvailable()) {
   
   // 2. Start a controlled session
   await NfcPro.startSession(
-    onDiscovered: (tag) async {
+    onDiscovered: (NfcTag tag) async {
       // 3. Generate a security challenge
       String challenge = "00A4040008A000000003000000"; // Example Select AID
       
