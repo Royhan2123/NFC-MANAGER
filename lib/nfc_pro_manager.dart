@@ -1,12 +1,26 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
-/**
- * NfcPro - The ultimate NFC library for Flutter.
- */
+/// Represents a discovered NFC tag with structured data.
+class NfcTag {
+  final String uid;
+  final String type;
+  final String? content;
+
+  NfcTag({required this.uid, required this.type, this.content});
+
+  factory NfcTag.fromMap(Map<String, dynamic> map) {
+    return NfcTag(
+      uid: map['uid'] ?? 'unknown',
+      type: map['type'] ?? 'unknown',
+      content: map['content'],
+    );
+  }
+}
+
+/// Professional NFC Manager API.
 class NfcPro {
-  static const MethodChannel _methodChannel =
-      MethodChannel('com.nfcpro/methods');
+  static const MethodChannel _methodChannel = MethodChannel('com.nfcpro/methods');
   static const EventChannel _eventChannel = EventChannel('com.nfcpro/events');
 
   /// Starts the NFC scanning session.
@@ -15,8 +29,7 @@ class NfcPro {
       final bool? success = await _methodChannel.invokeMethod('startScan');
       return success ?? false;
     } on PlatformException catch (e) {
-      print("NFC Error: ${e.message}");
-      return false;
+      throw NfcException(e.message ?? "Failed to start scan", code: e.code);
     }
   }
 
@@ -27,38 +40,45 @@ class NfcPro {
 
   /// Writes NDEF data (Text/URL) to the currently detected tag.
   static Future<bool> writeTag(String data) async {
-    final bool? success =
-        await _methodChannel.invokeMethod('writeTag', {'data': data});
+    final bool? success = await _methodChannel.invokeMethod('writeTag', {'data': data});
     return success ?? false;
   }
 
   /// Sends a raw APDU command to an ISO-DEP tag.
-  /// [capdu] should be a hex string or list of bytes.
   static Future<String?> transceive(String capdu) async {
     try {
       return await _methodChannel.invokeMethod('transceive', {'capdu': capdu});
     } on PlatformException catch (e) {
-      print("APDU Error: ${e.message}");
-      return null;
+      throw NfcException(e.message ?? "APDU Transmission Failed", code: e.code);
     }
   }
 
   /// Sets the identity string for HCE (Identity Emulation).
-  static Future<bool> setClonedId(String id) async {
-    final bool? success =
-        await _methodChannel.invokeMethod('setClonedId', {'id': id});
+  /// Replaced 'cloning' terminology for professional compliance.
+  static Future<bool> setEmulationId(String id) async {
+    final bool? success = await _methodChannel.invokeMethod('setClonedId', {'id': id});
     return success ?? false;
   }
 
-  /// Gets the currently stored cloned identity.
-  static Future<String?> getClonedId() async {
+  /// Gets the currently stored emulation identity.
+  static Future<String?> getEmulationId() async {
     return await _methodChannel.invokeMethod('getClonedId');
   }
 
   /// Stream that listens to real-time NFC events.
-  static Stream<Map<String, dynamic>> get onTagDiscovered {
+  static Stream<NfcTag> get onTagDiscovered {
     return _eventChannel
         .receiveBroadcastStream()
-        .map((event) => Map<String, dynamic>.from(event));
+        .map((event) => NfcTag.fromMap(Map<String, dynamic>.from(event)));
   }
+}
+
+/// Custom Exception for NFC related errors.
+class NfcException implements Exception {
+  final String message;
+  final String code;
+  NfcException(this.message, {this.code = 'NFC_ERROR'});
+
+  @override
+  String toString() => 'NfcException ($code): $message';
 }

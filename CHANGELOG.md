@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-05-06
+
+### Refactored
+- **Professional Terminology**: Renamed "Cloning" to "Identity Emulation" throughout the package.
+- **Strongly Typed Models**: Replaced `Map` responses with structured `NfcTag` and `NfcException` classes.
+- **Enhanced Documentation**: Added APDU technical deep dive and Security/Legal Disclaimers.
+- **Error Handling**: Improved error reporting via `NfcException`.
+
 ## [1.1.0] - 2026-05-06
 
 ### Added
