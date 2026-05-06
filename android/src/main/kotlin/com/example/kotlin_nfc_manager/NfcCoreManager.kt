@@ -8,9 +8,12 @@ import android.nfc.Tag
 import android.nfc.tech.IsoDep
 import android.nfc.tech.Ndef
 import android.util.Log
+import java.lang.ref.WeakReference
 
-class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback {
+class NfcCoreManager(activity: Activity) : NfcAdapter.ReaderCallback {
 
+    // Fix 3: Full Memory Safety using WeakReference
+    private val activityRef = WeakReference(activity)
     private var nfcAdapter: NfcAdapter? = NfcAdapter.getDefaultAdapter(activity)
     private var callback: NfcCallback? = null
     private var currentTag: Tag? = null
@@ -28,6 +31,7 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
     }
 
     fun startSession() {
+        val activity = activityRef.get() ?: return
         if (nfcAdapter == null) {
             callback?.onError("NOT_SUPPORTED", "NFC is not supported")
             return
@@ -53,6 +57,7 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
     }
 
     fun stopSession() {
+        val activity = activityRef.get() ?: return
         nfcAdapter?.disableReaderMode(activity)
         closeActiveConnection()
         currentTag = null
@@ -67,8 +72,6 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
 
     override fun onTagDiscovered(tag: Tag?) {
         if (tag == null) return
-        
-        // New tag discovered, close previous connection
         closeActiveConnection()
         currentTag = tag
 
@@ -80,8 +83,6 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
             val ndef = Ndef.get(tag)
             ndef?.connect()
             val message = ndef?.cachedNdefMessage
-            
-            // Fix 4: Improved Multi-Record NDEF Parsing
             message?.records?.forEach { record ->
                 val payload = record.payload
                 when {
@@ -105,21 +106,20 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
             callback?.onIsoDepDetected(isoDep)
         }
 
-        activity.runOnUiThread {
+        activityRef.get()?.runOnUiThread {
             callback?.onTagDiscovered(uid, techList, parsedContent.trim())
         }
     }
 
+    @Synchronized
     fun transceiveApdu(command: ByteArray): ByteArray? {
         val isoDep = activeIsoDep ?: return null
-        
-        // Fix 3: Persistent Connection (Keep open for multiple APDUs)
         return try {
             if (!isoDep.isConnected) isoDep.connect()
             isoDep.transceive(command)
         } catch (e: Exception) {
             Log.e("NfcCoreManager", "Transceive error: ${e.message}")
-            closeActiveConnection() // Connection lost
+            closeActiveConnection()
             null
         }
     }

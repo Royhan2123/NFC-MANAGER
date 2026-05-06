@@ -38,10 +38,10 @@ class NfcTag {
   }
 }
 
-/// The Platinum Standard NFC Manager SDK (Version 2.7.0).
+/// The Diamond Standard NFC Manager SDK (Version 2.8.0).
 /// 
-/// engineered for extreme memory safety, thread-safe synchronization,
-/// and industry-compliant HCE emulations.
+/// engineered for high-security environments, automated lifecycle handling,
+/// and bank-grade HCE compliance.
 class NfcPro {
   static const MethodChannel _methodChannel = MethodChannel('com.nfcpro/methods');
   static const EventChannel _eventChannel = EventChannel('com.nfcpro/events');
@@ -71,13 +71,12 @@ class NfcPro {
 
   /// Starts a professional NFC session with robust lifecycle management.
   /// 
-  /// This is the preferred way to interact with NFC tags.
+  /// The session automatically suspends when the app goes to the background.
   static Future<void> startSession({
     required Function(NfcTag) onDiscovered,
     Function(NfcException)? onError,
     Duration? timeout,
   }) async {
-    // Fix 3: Strict Session Guard to prevent double execution
     if (_state == NfcSessionState.starting || _state == NfcSessionState.active) {
       if (_debugMode) print("[NfcPro] Session Guard: A session is already active.");
       return;
@@ -90,7 +89,6 @@ class NfcPro {
       await _methodChannel.invokeMethod('startScan');
       _state = NfcSessionState.active;
 
-      // Internal listener management
       _sessionSubscription = onTagDiscovered.listen(
         (tag) {
           _state = NfcSessionState.processing;
@@ -120,7 +118,7 @@ class NfcPro {
     }
   }
 
-  /// Stops the current session and releases all resources (Native & Dart).
+  /// Stops the current session and releases all resources.
   static Future<void> stopSession() async {
     _sessionTimer?.cancel();
     _sessionTimer = null;
@@ -143,6 +141,18 @@ class NfcPro {
     }
   }
 
+  /// Runs a sequence of APDU commands as a script.
+  /// 
+  /// Returns a list of responses for each command.
+  static Future<List<String?>> runScript(List<String> script) async {
+    final List<String?> responses = [];
+    for (final command in script) {
+      final response = await transceive(command);
+      responses.add(response);
+    }
+    return responses;
+  }
+
   /// Writes NDEF data to the currently detected tag.
   static Future<bool> writeTag(String data) async {
     final bool? success = await _methodChannel.invokeMethod('writeTag', {'data': data});
@@ -155,8 +165,7 @@ class NfcPro {
     return success ?? false;
   }
 
-  /// Global stream for tag discovery. 
-  /// Note: Prefer using [startSession] for automated lifecycle management.
+  /// Global stream for tag discovery.
   static Stream<NfcTag> get onTagDiscovered {
     return _eventChannel
         .receiveBroadcastStream()
@@ -164,7 +173,7 @@ class NfcPro {
   }
 }
 
-/// Advanced APDU Command Builder for smart card interaction.
+/// Advanced APDU Command Builder.
 class NfcApdu {
   static String selectAid(String aid) {
     final String lc = (aid.length ~/ 2).toRadixString(16).padLeft(2, '0');

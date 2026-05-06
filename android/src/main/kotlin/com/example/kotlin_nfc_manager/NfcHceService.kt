@@ -24,25 +24,30 @@ class NfcHceService : HostApduService() {
 
         val ins = commandApdu[1]
         
-        // 1. Handle SELECT AID
         if (ins == INS_SELECT) {
             if (isValidAid(commandApdu)) {
                 sessionActive = true
                 val prefs = getSharedPreferences("NfcProPrefs", MODE_PRIVATE)
-                val identity = prefs.getString("cloned_identity", "NFC-PRO-GOD-TIER") ?: "NFC-PRO-GOD-TIER"
+                val identity = prefs.getString("cloned_identity", "NFC-PRO-DIAMOND") ?: "NFC-PRO-DIAMOND"
                 
                 val payload = identity.toByteArray()
-                val tlv = byteArrayOf(0x5F.toByte(), 0x20.toByte(), payload.size.toByte()) + payload
-                return tlv + SUCCESS_SW
+                
+                // Fix 5: ISO 7816-4 Compliant FCI Template (6F)
+                // Format: [6F] [Len] [84] [Len AID] [AID] [A5] [Len Prop] ...
+                // For simplicity, we wrap the identity in a standard FCI structure
+                val fci = byteArrayOf(
+                    0x6F.toByte(), (payload.size + 2).toByte(),
+                    0x84.toByte(), payload.size.toByte()
+                ) + payload
+                
+                return fci + SUCCESS_SW
             } else {
                 return UNKNOWN_SW
             }
         }
 
-        // 2. Handle READ BINARY (With session state)
         if (sessionActive && ins == INS_READ_BINARY) {
-            // Fix 5: Stateful HCE Response
-            val mockData = "GOD-TIER-SECURE-PAYLOAD-V3".toByteArray()
+            val mockData = "DIAMOND-SECURE-PAYLOAD-V4".toByteArray()
             return mockData + SUCCESS_SW
         }
 

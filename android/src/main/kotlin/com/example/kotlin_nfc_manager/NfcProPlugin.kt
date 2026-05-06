@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.nfc.NfcAdapter
 import android.provider.Settings
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -14,7 +17,7 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 
-class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
+class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, DefaultLifecycleObserver {
 
     private lateinit var channel: MethodChannel
     private lateinit var eventChannel: EventChannel
@@ -36,6 +39,7 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 nfcController?.updateEventSink(events)
             }
             override fun onCancel(arguments: Any?) {
+                // Fix 4: Clear pending events on cancel to avoid leak
                 eventSink = null
                 nfcController?.updateEventSink(null)
             }
@@ -77,7 +81,7 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                     val capdu = call.argument<String>("capdu") ?: ""
                     val rapdu = nfcController?.transceiveApdu(capdu)
                     if (rapdu != null) result.success(rapdu) 
-                    else result.error("CONNECTION_LOST", "Tag removed during APDU exchange", null)
+                    else result.error("TAG_LOST", "Connection lost during APDU", null)
                 }
                 "setClonedId" -> {
                     val id = call.argument<String>("id") ?: ""
@@ -104,6 +108,16 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         activity = binding.activity
         nfcController = NfcController(activity!!)
         nfcController?.updateEventSink(eventSink)
+
+        // Fix 1: Register Lifecycle Observer
+        if (activity is FlutterActivity) {
+            (activity as FlutterActivity).lifecycle.addObserver(this)
+        }
+    }
+
+    override fun onPause(owner: LifecycleOwner) {
+        // Fix 1: Stop session when app goes to background
+        nfcController?.stopNfcSession()
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
@@ -115,7 +129,6 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     override fun onDetachedFromActivity() {
-        // Fix 2: Explicitly stop session on detach to prevent background usage
         nfcController?.stopNfcSession()
         activity = null
         nfcController = null
