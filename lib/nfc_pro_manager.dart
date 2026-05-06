@@ -12,20 +12,12 @@ enum NfcErrorType {
 }
 
 /// Represents the current state of the NFC session.
-enum NfcSessionState {
-  idle,
-  starting,
-  active,
-  processing,
-  stopped,
-  error
-}
+enum NfcSessionState { idle, starting, active, processing, stopped, error }
 
 /// Represents the hardware capabilities of the device.
 class NfcSupport {
   final bool isAvailable;
   final bool isHceSupported;
-
   NfcSupport({required this.isAvailable, required this.isHceSupported});
 }
 
@@ -46,7 +38,7 @@ class NfcTag {
   }
 }
 
-/// Professional NFC Manager SDK (Version 2.2.0).
+/// Professional NFC Manager SDK (Version 2.3.0 - Enterprise Finalist).
 class NfcPro {
   static const MethodChannel _methodChannel = MethodChannel('com.nfcpro/methods');
   static const EventChannel _eventChannel = EventChannel('com.nfcpro/events');
@@ -54,9 +46,13 @@ class NfcPro {
   static StreamSubscription? _sessionSubscription;
   static Timer? _sessionTimer;
   static NfcSessionState _state = NfcSessionState.idle;
+  static bool _debugMode = false;
 
   /// Returns the current state of the NFC session.
   static NfcSessionState get state => _state;
+
+  /// Enables or disables debug logging.
+  static void enableDebug(bool enable) => _debugMode = enable;
 
   /// Checks detailed hardware capabilities.
   static Future<NfcSupport> checkSupport() async {
@@ -76,6 +72,12 @@ class NfcPro {
     Function(NfcException)? onError,
     Duration? timeout,
   }) async {
+    // Fix IMPROVEMENT 4: Session Guard
+    if (_state == NfcSessionState.starting || _state == NfcSessionState.active) {
+      if (_debugMode) print("[NfcPro] Session already active. Ignoring start request.");
+      return;
+    }
+
     await stopSession();
     _state = NfcSessionState.starting;
 
@@ -107,11 +109,8 @@ class NfcPro {
       }
     } on PlatformException catch (e) {
       _state = NfcSessionState.error;
-      if (onError != null) {
-        onError(NfcException.fromPlatformException(e));
-      } else {
-        rethrow;
-      }
+      if (onError != null) onError(NfcException.fromPlatformException(e));
+      else rethrow;
     }
   }
 
@@ -119,7 +118,6 @@ class NfcPro {
   static Future<void> stopSession() async {
     _sessionTimer?.cancel();
     _sessionTimer = null;
-    
     await _sessionSubscription?.cancel();
     _sessionSubscription = null;
 
@@ -130,7 +128,9 @@ class NfcPro {
   /// Sends a raw APDU command to an ISO-DEP tag.
   static Future<String?> transceive(String capdu) async {
     try {
-      return await _methodChannel.invokeMethod('transceive', {'capdu': capdu});
+      final String? response = await _methodChannel.invokeMethod('transceive', {'capdu': capdu});
+      if (_debugMode) print("[NfcPro] APDU Transceive: $capdu -> $response");
+      return response;
     } on PlatformException catch (e) {
       throw NfcException.fromPlatformException(e);
     }
@@ -150,15 +150,13 @@ class NfcPro {
   }
 }
 
-/// Advanced APDU Command Builder for Smart Card interaction.
+/// Advanced APDU Command Builder.
 class NfcApdu {
-  /// Builds a SELECT AID command (Standard ISO 7816-4).
   static String selectAid(String aid) {
     final String lc = (aid.length ~/ 2).toRadixString(16).padLeft(2, '0');
     return "00A40400$lc${aid}00";
   }
 
-  /// Builds a READ BINARY command.
   static String readBinary({int sfi = 0, int offset = 0, int length = 256}) {
     final String p1 = offset.toRadixString(16).padLeft(2, '0');
     final String le = length.toRadixString(16).padLeft(2, '0');
@@ -166,7 +164,7 @@ class NfcApdu {
   }
 }
 
-/// Custom Exception with Enterprise-grade error mapping.
+/// Custom Exception with Granular Error Mapping.
 class NfcException implements Exception {
   final String message;
   final NfcErrorType type;
@@ -182,9 +180,10 @@ class NfcException implements Exception {
       case 'TIMEOUT': type = NfcErrorType.timeout; break;
       case 'CONNECTION_LOST': type = NfcErrorType.connectionLost; break;
       case 'INVALID_APDU': type = NfcErrorType.invalidApdu; break;
+      case 'TAG_LOST': type = NfcErrorType.connectionLost; break;
       default: type = NfcErrorType.unknown;
     }
-    return NfcException(e.message ?? "Unknown NFC Error", type: type, code: e.code);
+    return NfcException(e.message ?? "NFC Error", type: type, code: e.code);
   }
 
   @override

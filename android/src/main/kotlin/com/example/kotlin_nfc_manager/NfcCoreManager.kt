@@ -1,16 +1,12 @@
 package com.example.kotlin_nfc_manager
 
 import android.app.Activity
-import android.app.PendingIntent
-import android.content.Intent
-import android.content.IntentFilter
 import android.nfc.NdefMessage
 import android.nfc.NdefRecord
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.IsoDep
 import android.nfc.tech.Ndef
-import android.os.Build
 import android.util.Log
 
 class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback {
@@ -23,7 +19,7 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
         fun onTagDiscovered(uid: String, cardType: String, content: String?)
         fun onIsoDepDetected(isoDep: IsoDep)
         fun onLogGenerated(message: String)
-        fun onError(message: String)
+        fun onError(code: String, message: String)
     }
 
     fun setCallback(callback: NfcCallback) {
@@ -32,17 +28,16 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
 
     fun startSession() {
         if (nfcAdapter == null) {
-            callback?.onError("NFC is not supported on this device")
+            callback?.onError("NOT_SUPPORTED", "NFC is not supported")
             return
         }
 
         if (!nfcAdapter!!.isEnabled) {
-            callback?.onError("NFC is disabled")
+            callback?.onError("DISABLED", "NFC is disabled")
             return
         }
 
         val options = android.os.Bundle()
-        // Reduce delay for faster discovery
         options.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 250)
 
         nfcAdapter?.enableReaderMode(
@@ -50,8 +45,6 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
             this,
             NfcAdapter.FLAG_READER_NFC_A or 
             NfcAdapter.FLAG_READER_NFC_B or 
-            NfcAdapter.FLAG_READER_NFC_F or 
-            NfcAdapter.FLAG_READER_NFC_V or 
             NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
             options
         )
@@ -68,19 +61,25 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
         val uid = byteArrayToHexString(tag.id)
         val techList = tag.techList.joinToString(", ")
         
-        // Try to read NDEF content
         var ndefContent: String? = null
         try {
             val ndef = Ndef.get(tag)
             ndef?.connect()
             val message = ndef?.cachedNdefMessage
-            ndefContent = message?.records?.getOrNull(0)?.let { String(it.payload) }
+            
+            // Fix IMPROVEMENT 2: Proper NDEF Text Parsing (handling language code header)
+            ndefContent = message?.records?.getOrNull(0)?.let { record ->
+                val payload = record.payload
+                if (payload.isNotEmpty()) {
+                    val langLength = payload[0].toInt() and 0x3F
+                    String(payload, 1 + langLength, payload.size - 1 - langLength)
+                } else null
+            }
             ndef?.close()
         } catch (e: Exception) {
             Log.e("NfcCoreManager", "NDEF Read Error: ${e.message}")
         }
 
-        // Handle ISO-DEP (Smart Cards)
         val isoDep = IsoDep.get(tag)
         if (isoDep != null) {
             callback?.onIsoDepDetected(isoDep)
@@ -97,10 +96,8 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
         
         return try {
             if (!isoDep.isConnected) isoDep.connect()
-            val response = isoDep.transceive(command)
-            response
+            isoDep.transceive(command)
         } catch (e: Exception) {
-            Log.e("NfcCoreManager", "APDU Error: ${e.message}")
             null
         }
     }
@@ -115,20 +112,15 @@ class NfcCoreManager(private val activity: Activity) : NfcAdapter.ReaderCallback
                 ndef.writeNdefMessage(ndefMessage)
                 ndef.close()
                 true
-            } else {
-                false
-            }
+            } else false
         } catch (e: Exception) {
-            Log.e("NfcCoreManager", "Write Error: ${e.message}")
             false
         }
     }
 
     fun getCurrentTag(): Tag? = currentTag
 
-    fun byteArrayToHexString(bytes: ByteArray): String {
-        return bytes.joinToString("") { String.format("%02X", it) }
-    }
+    fun byteArrayToHexString(bytes: ByteArray): String = bytes.joinToString("") { "%02X".format(it) }
 
     fun hexStringToByteArray(s: String): ByteArray {
         val len = s.length
