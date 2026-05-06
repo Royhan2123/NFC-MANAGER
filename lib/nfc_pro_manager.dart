@@ -11,6 +11,16 @@ enum NfcErrorType {
   unknown
 }
 
+/// Represents the current state of the NFC session.
+enum NfcSessionState {
+  idle,
+  starting,
+  active,
+  processing,
+  stopped,
+  error
+}
+
 /// Represents the hardware capabilities of the device.
 class NfcSupport {
   final bool isAvailable;
@@ -36,13 +46,17 @@ class NfcTag {
   }
 }
 
-/// Industry-Grade NFC Manager SDK.
+/// Professional NFC Manager SDK (Version 2.2.0).
 class NfcPro {
   static const MethodChannel _methodChannel = MethodChannel('com.nfcpro/methods');
   static const EventChannel _eventChannel = EventChannel('com.nfcpro/events');
 
   static StreamSubscription? _sessionSubscription;
   static Timer? _sessionTimer;
+  static NfcSessionState _state = NfcSessionState.idle;
+
+  /// Returns the current state of the NFC session.
+  static NfcSessionState get state => _state;
 
   /// Checks detailed hardware capabilities.
   static Future<NfcSupport> checkSupport() async {
@@ -51,32 +65,38 @@ class NfcPro {
     return NfcSupport(isAvailable: available, isHceSupported: hce);
   }
 
+  /// Opens the system NFC settings.
+  static Future<void> openSettings() async {
+    await _methodChannel.invokeMethod('openSettings');
+  }
+
   /// Starts a professional NFC session with proper lifecycle management.
-  /// 
-  /// The session will automatically handle data routing and cleanup.
   static Future<void> startSession({
     required Function(NfcTag) onDiscovered,
     Function(NfcException)? onError,
     Duration? timeout,
   }) async {
-    // 1. Cleanup existing session if any
     await stopSession();
+    _state = NfcSessionState.starting;
 
     try {
-      // 2. Start native scanning
       await _methodChannel.invokeMethod('startScan');
+      _state = NfcSessionState.active;
 
-      // 3. Bind the local listener to the global stream
       _sessionSubscription = onTagDiscovered.listen(
-        (tag) => onDiscovered(tag),
+        (tag) {
+          _state = NfcSessionState.processing;
+          onDiscovered(tag);
+          _state = NfcSessionState.active;
+        },
         onError: (e) {
+          _state = NfcSessionState.error;
           if (onError != null) {
             onError(NfcException.fromPlatformException(e as PlatformException));
           }
         },
       );
 
-      // 4. Handle Timeout
       if (timeout != null) {
         _sessionTimer = Timer(timeout, () async {
           await stopSession();
@@ -86,6 +106,7 @@ class NfcPro {
         });
       }
     } on PlatformException catch (e) {
+      _state = NfcSessionState.error;
       if (onError != null) {
         onError(NfcException.fromPlatformException(e));
       } else {
@@ -94,7 +115,7 @@ class NfcPro {
     }
   }
 
-  /// Stops the session and releases all resources (Native & Dart).
+  /// Stops the session and releases all resources.
   static Future<void> stopSession() async {
     _sessionTimer?.cancel();
     _sessionTimer = null;
@@ -103,6 +124,7 @@ class NfcPro {
     _sessionSubscription = null;
 
     await _methodChannel.invokeMethod('stopScan');
+    _state = NfcSessionState.stopped;
   }
 
   /// Sends a raw APDU command to an ISO-DEP tag.
@@ -114,19 +136,13 @@ class NfcPro {
     }
   }
 
-  /// Writes NDEF data (Text/URL) to the currently detected tag.
-  static Future<bool> writeTag(String data) async {
-    final bool? success = await _methodChannel.invokeMethod('writeTag', {'data': data});
-    return success ?? false;
-  }
-
   /// Sets the identity string for Identity Emulation (HCE).
   static Future<bool> setEmulationId(String id) async {
     final bool? success = await _methodChannel.invokeMethod('setClonedId', {'id': id});
     return success ?? false;
   }
 
-  /// Global stream for background listeners (if needed).
+  /// Global stream for background listeners.
   static Stream<NfcTag> get onTagDiscovered {
     return _eventChannel
         .receiveBroadcastStream()
@@ -134,19 +150,23 @@ class NfcPro {
   }
 }
 
-/// SDK Helper for building and parsing APDU commands.
-class NfcUtils {
-  static String buildSelectAid(String aid) {
+/// Advanced APDU Command Builder for Smart Card interaction.
+class NfcApdu {
+  /// Builds a SELECT AID command (Standard ISO 7816-4).
+  static String selectAid(String aid) {
     final String lc = (aid.length ~/ 2).toRadixString(16).padLeft(2, '0');
     return "00A40400$lc${aid}00";
   }
 
-  static bool isSuccess(String? rapdu) {
-    return rapdu != null && rapdu.endsWith("9000");
+  /// Builds a READ BINARY command.
+  static String readBinary({int sfi = 0, int offset = 0, int length = 256}) {
+    final String p1 = offset.toRadixString(16).padLeft(2, '0');
+    final String le = length.toRadixString(16).padLeft(2, '0');
+    return "00B0$p1${sfi.toRadixString(16).padLeft(2, '0')}$le";
   }
 }
 
-/// Custom Exception for NFC related errors with specific types.
+/// Custom Exception with Enterprise-grade error mapping.
 class NfcException implements Exception {
   final String message;
   final NfcErrorType type;

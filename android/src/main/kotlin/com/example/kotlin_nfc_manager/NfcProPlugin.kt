@@ -2,7 +2,9 @@ package com.example.kotlin_nfc_manager
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.nfc.NfcAdapter
+import android.provider.Settings
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -31,7 +33,6 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                 eventSink = events
-                // Fix BUG 1: Update eventSink in controller when it becomes available
                 nfcController?.updateEventSink(events)
             }
             override fun onCancel(arguments: Any?) {
@@ -47,6 +48,12 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 "isAvailable" -> {
                     val nfcAdapter = NfcAdapter.getDefaultAdapter(context)
                     result.success(nfcAdapter != null && nfcAdapter.isEnabled)
+                }
+                "openSettings" -> {
+                    val intent = Intent(Settings.ACTION_NFC_SETTINGS)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context?.startActivity(intent)
+                    result.success(true)
                 }
                 "supportsEmulation" -> {
                     val pm = context?.packageManager
@@ -95,15 +102,16 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activity = binding.activity
-        // Inject current eventSink (even if null) and update it later via onListen
-        nfcController = NfcController(activity!!, eventSink)
+        // Fix DESIGN BUG: Don't inject eventSink in constructor
+        nfcController = NfcController(activity!!)
+        // Inject current eventSink if available
+        nfcController?.updateEventSink(eventSink)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
         onDetachedFromActivity()
     }
 
-    // Fix BUG 2: Correct method name (casing)
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
         onAttachedToActivity(binding)
     }

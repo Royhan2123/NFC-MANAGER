@@ -5,22 +5,22 @@ import android.nfc.tech.IsoDep
 import android.util.Log
 import io.flutter.plugin.common.EventChannel
 
-class NfcController(private val activity: Activity, private var eventSink: EventChannel.EventSink?) : NfcCoreManager.NfcCallback {
+class NfcController(private val activity: Activity) : NfcCoreManager.NfcCallback {
 
     private val nfcCoreManager = NfcCoreManager(activity)
+    private var eventSink: EventChannel.EventSink? = null
     private var lastUid: String? = null
 
     init {
         nfcCoreManager.setCallback(this)
     }
 
-    // Fix BUG 1: Dynamic eventSink update
     fun updateEventSink(sink: EventChannel.EventSink?) {
         this.eventSink = sink
     }
 
     fun startNfcSession() {
-        lastUid = null // Reset debounce on new session
+        lastUid = null
         nfcCoreManager.startSession()
     }
 
@@ -45,26 +45,21 @@ class NfcController(private val activity: Activity, private var eventSink: Event
     }
 
     override fun onTagDiscovered(uid: String, cardType: String, content: String?) {
-        // Fix IMPROVEMENT 3: Debounce logic to prevent double triggers
         if (uid == lastUid) return
         lastUid = uid
 
-        Log.d("NfcController", "Tag Discovered - UID: $uid")
-        
         val eventData = mapOf(
             "uid" to uid,
             "type" to cardType,
             "content" to content
         )
         
-        // Fix BUG 3: activity is now a property
         activity.runOnUiThread {
             eventSink?.success(eventData)
         }
     }
 
     override fun onIsoDepDetected(isoDep: IsoDep) {
-        // Fix DESIGN ISSUE: Add timeout to prevent hanging
         try {
             isoDep.timeout = 5000 
         } catch (e: Exception) {
@@ -77,7 +72,6 @@ class NfcController(private val activity: Activity, private var eventSink: Event
     }
 
     override fun onError(message: String) {
-        Log.e("NfcController", "NFC Error: $message")
         activity.runOnUiThread {
             eventSink?.error("NFC_ERROR", message, null)
         }

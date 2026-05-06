@@ -1,6 +1,6 @@
-# NFC Pro Manager 🚀
+# NFC Pro Manager 🚀 (Version 2.2.0)
 
-The enterprise-grade NFC SDK for Flutter. Engineered for low-latency communication, advanced **ISO-DEP (APDU)** interaction, and **Identity Emulation (HCE)** with virtual AID routing.
+The enterprise-grade NFC SDK for Flutter. Engineered for low-latency communication, advanced **ISO-DEP (APDU)** interaction, and **Identity Emulation (HCE)**.
 
 ---
 
@@ -9,96 +9,77 @@ The enterprise-grade NFC SDK for Flutter. Engineered for low-latency communicati
 ```text
 [ Flutter Application ]
           |
-    [ NfcPro SDK ]  <--- (Strongly Typed API)
+    [ NfcPro SDK ]  <--- (Session State Machine)
           |
    [ Platform Channel ]
     /            \
 [ Android ]    [ iOS ]
     |             |
-[HCE / IsoDep] [CoreNFC]
-    |             |
-[   Physical Hardware  ]
+[HCE / IsoDep] [CoreNFC*]
 ```
+*\*iOS support is currently limited to NDEF Read/Write. HCE is Android-only.*
+
+---
+
+## 🔥 Professional Features (v2.2.0)
+
+-   **Session State Machine**: Track lifecycle via `NfcPro.state` (idle, active, processing, etc).
+-   **NfcApdu Builder**: Simplified APDU command construction (SELECT AID, READ BINARY).
+-   **Hardware Stability**: Native debouncing and 5-second hardware timeouts.
+-   **UX Helpers**: `NfcPro.openSettings()` to guide users when NFC is disabled.
+-   **Deterministic Lifecycle**: Fixed race conditions in event dispatching.
 
 ---
 
 ## 📦 Installation
 
-Add this to your `pubspec.yaml`:
 ```yaml
 dependencies:
-  nfc_pro_manager: ^1.5.2
+  nfc_pro_manager: ^2.2.0
 ```
 
 ---
 
 ## 🚀 Quick Start
 
-Get up and running in seconds:
 ```dart
-import 'package:nfc_pro_manager/nfc_pro_manager.dart';
+// 1. Check & Open Settings
+final support = await NfcPro.checkSupport();
+if (!support.isAvailable) {
+  await NfcPro.openSettings();
+}
 
-// Start a simple session
+// 2. Start Secure Session
 await NfcPro.startSession(
-  onDiscovered: (tag) {
-    print("UID Found: ${tag.uid}");
+  timeout: Duration(seconds: 10),
+  onDiscovered: (tag) async {
+    print("Tag: ${tag.uid}");
+    
+    // 3. Use Apdu Builder
+    final command = NfcApdu.selectAid("F0010203040506");
+    final response = await NfcPro.transceive(command);
   },
 );
 ```
 
 ---
 
-## 📖 SDK Features
+## 🔧 Platform Support Matrix
 
-*   **Session Lifecycle Management**: Robust `startSession` and `stopSession` with built-in **Timeout Control**.
-*   **Identity Emulation (HCE)**: Securely emulate virtual smart cards via Android Host Card Emulation.
-*   **ISO-DEP / APDU Transceive**: Direct low-level communication with Smart Cards at native speeds.
-*   **Strongly Typed Engine**: All tag data is returned as structured `NfcTag` models.
-*   **SDK Helpers**: Professional utilities like `NfcUtils.buildSelectAid()` and response validation.
-
----
-
-## 📡 NFC Session Flow
-
-```text
-[ Start Session ] 
-      ↓
-[ Wait for Tag ] <--- (Hardware Level)
-      ↓
-[ Tag Discovered ] 
-      ↓
-[ Process (NDEF / APDU) ]
-      ↓
-[ Complete / Stop Session ]
-```
-
----
-
-## 🔧 Common Errors & Solutions
-
-| Error Type | Meaning | Possible Solution |
-| :--- | :--- | :--- |
-| `notSupported` | Device lacks NFC hardware. | Check device specs or use `isAvailable()`. |
-| `disabled` | NFC is turned off in settings. | Prompt user to enable NFC. |
-| `timeout` | No tag detected within duration. | Increase timeout or retry session. |
-| `connectionLost` | Tag moved too quickly. | Ask user to hold the tag steadily. |
-
----
-
-## ⚡ Performance Metrics
-- **Discovery Latency**: < 250ms.
-- **APDU Round-trip**: 50ms - 150ms.
-- **Disclaimer**: *Performance may vary depending on device hardware and NFC chip quality.*
+| Feature | Android | iOS |
+| :--- | :---: | :---: |
+| NDEF Read/Write | ✅ | ✅ |
+| ISO-DEP (APDU) | ✅ | 🚧 (Experimental) |
+| HCE (Emulation) | ✅ | ❌ (OS Limit) |
+| Session Timeout | ✅ | ✅ |
 
 ---
 
 ## 🔄 Versioning Strategy
-- **v1.x.x**: Stable API. Focus on bug fixes and performance optimization.
-- **v2.x.x**: (Future) Planned breaking changes to support Multi-session HCE.
+- **v2.x.x**: Stable Enterprise SDK.
+- **v3.x.x**: (Planned) Advanced iOS CoreNFC integration.
 
 ---
 
 ## 📄 License
 MIT License.
-
-_Engineered for reliability. Built for the Flutter Community._
