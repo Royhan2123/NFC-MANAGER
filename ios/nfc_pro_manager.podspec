@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'nfc_pro_manager'
-  s.version          = '1.0.1'
+  s.version          = '1.0.2'
   s.summary          = 'A professional NFC library for Flutter.'
   s.description      = <<-DESC
 A professional NFC library for Flutter. Supports HCE, Card Cloning, and NDEF.

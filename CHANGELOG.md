@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-05-06
+
+### Improved
+- Synchronized Android and iOS project configurations.
+- Improved build compatibility with modern Flutter environments (NDK 27+).
+- Refined manifest merger logic to prevent duplicate service declarations.
+
 ## [1.0.1] - 2026-05-06
 
 ### Fixed
