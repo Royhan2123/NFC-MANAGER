@@ -1,3 +1,9 @@
+## 3.1.4
+- Removed unnecessary NDK version requirement (pure Kotlin implementation)
+- Automatic minSdkVersion 30 enforcement
+- Updated installation documentation for plug & play setup
+
+
 ## [3.1.3] - 2026-05-09
 
 - **Fix settings.gradle.kts structure**

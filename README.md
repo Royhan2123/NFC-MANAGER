@@ -76,6 +76,33 @@ Content: Secure Identity Token v3
 - **Scanning UI**: iOS shows a mandatory system modal during scanning.
 - **Background**: Very limited background scanning compared to Android.
 
+## 🔧 Installation & Setup
+
+### Prerequisites
+- **Flutter**: >= 3.0.0
+- **Android SDK**: API 30 or higher (automatically enforced by plugin)
+- **iOS**: iOS 12.0+
+
+### Installation
+
+Just add to your `pubspec.yaml`:
+```yaml
+dependencies:
+  nfc_pro_manager: ^3.1.3
+```
+
+Run `flutter pub get` and you're done! ✅
+
+The plugin automatically enforces **minSdkVersion 30** on Android. No manual configuration needed!
+
+### ✅ Compatibility Matrix
+
+| Flutter Version | Dart | Android SDK | Status |
+|-----------------|------|-------------|--------|
+| 3.0.x - 3.5.x   | >=3.0| 30+ | ✅ Supported |
+| 4.0.x+          | >=3.3| 30+ | ✅ Supported |
+
+> **Note**: Pure Kotlin/Java implementation - no NDK required!
+
 ## 📄 License
 MIT License. Created with ❤️ for the Flutter community.
-
