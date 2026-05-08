@@ -30,6 +30,8 @@ public class NfcProPlugin: NSObject, FlutterPlugin, NFCTagReaderSessionDelegate 
         case "stopScan":
             stopNfcSession()
             result(true)
+        case "readMifareClassic", "writeMifareClassic":
+            result(FlutterError(code: "UNSUPPORTED", message: "MIFARE Classic operations are only supported on Android", details: nil))
         default:
             result(FlutterMethodNotImplemented)
         }

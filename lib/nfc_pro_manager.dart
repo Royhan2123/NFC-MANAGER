@@ -179,6 +179,43 @@ class NfcPro {
     return success ?? false;
   }
 
+  /// Read raw MIFARE Classic blocks from the current tag.
+  ///
+  /// Returns a list of block hex strings or null if the current tag is not
+  /// a MIFARE Classic card or authentication fails.
+  static Future<List<String>?> readMifareClassic({
+    String keyA = 'FFFFFFFFFFFF',
+    int startSector = 0,
+    int sectorCount = 16,
+  }) async {
+    final dynamic result =
+        await _methodChannel.invokeMethod('readMifareClassic', {
+      'keyA': keyA,
+      'startSector': startSector,
+      'sectorCount': sectorCount,
+    });
+
+    if (result == null) return null;
+    return List<String>.from(result as List);
+  }
+
+  /// Write raw MIFARE Classic blocks to the current tag.
+  ///
+  /// The block data should be provided as a list of 16-byte hex strings.
+  static Future<bool> writeMifareClassic({
+    required List<String> blocks,
+    String keyA = 'FFFFFFFFFFFF',
+    int startBlock = 0,
+  }) async {
+    final bool? success =
+        await _methodChannel.invokeMethod('writeMifareClassic', {
+      'keyA': keyA,
+      'blocks': blocks,
+      'startBlock': startBlock,
+    });
+    return success ?? false;
+  }
+
   static Stream<NfcTag> get onTagDiscovered {
     return _eventChannel
         .receiveBroadcastStream()

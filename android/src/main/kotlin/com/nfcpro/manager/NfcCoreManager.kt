@@ -6,6 +6,7 @@ import android.nfc.NdefRecord
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.IsoDep
+import android.nfc.tech.MifareClassic
 import android.nfc.tech.Ndef
 import android.util.Log
 import java.lang.ref.WeakReference
@@ -136,6 +137,82 @@ class NfcCoreManager(activity: Activity) : NfcAdapter.ReaderCallback {
             } else false
         } catch (e: Exception) {
             false
+        }
+    }
+
+    fun readMifareClassic(keyAHex: String = "FFFFFFFFFFFF", startSector: Int = 0, sectorCount: Int = -1): List<String>? {
+        val tag = currentTag ?: return null
+        val mifare = MifareClassic.get(tag) ?: return null
+
+        return try {
+            mifare.connect()
+            val keyA = hexStringToByteArray(keyAHex.ifEmpty { "FFFFFFFFFFFF" })
+            val maxSectors = mifare.sectorCount
+            val sectorCountValue = if (sectorCount <= 0) maxSectors - startSector else minOf(sectorCount, maxSectors - startSector)
+            if (startSector < 0 || startSector >= maxSectors || sectorCountValue <= 0) return null
+
+            val blocks = mutableListOf<String>()
+            for (sector in startSector until (startSector + sectorCountValue)) {
+                if (!mifare.authenticateSectorWithKeyA(sector, keyA)) {
+                    Log.e("NfcCoreManager", "MifareClassic auth failed for sector $sector")
+                    return null
+                }
+                val firstBlock = mifare.sectorToBlock(sector)
+                val blockCount = mifare.getBlockCountInSector(sector)
+                for (blockOffset in 0 until blockCount) {
+                    val blockData = mifare.readBlock(firstBlock + blockOffset)
+                    blocks.add(byteArrayToHexString(blockData))
+                }
+            }
+            blocks
+        } catch (e: Exception) {
+            Log.e("NfcCoreManager", "MifareClassic read error: ${e.message}")
+            null
+        } finally {
+            closeMifare(mifare)
+        }
+    }
+
+    fun writeMifareClassic(keyAHex: String = "FFFFFFFFFFFF", blocks: List<String>, startBlock: Int = 0): Boolean {
+        val tag = currentTag ?: return false
+        val mifare = MifareClassic.get(tag) ?: return false
+
+        return try {
+            mifare.connect()
+            val keyA = hexStringToByteArray(keyAHex.ifEmpty { "FFFFFFFFFFFF" })
+            if (startBlock < 0 || startBlock >= mifare.blockCount) return false
+            if (blocks.isEmpty()) return false
+            if (startBlock + blocks.size > mifare.blockCount) return false
+
+            var currentSector = -1
+            for ((index, blockHex) in blocks.withIndex()) {
+                val blockIndex = startBlock + index
+                val sector = mifare.blockToSector(blockIndex)
+                if (sector != currentSector) {
+                    if (!mifare.authenticateSectorWithKeyA(sector, keyA)) {
+                        Log.e("NfcCoreManager", "MifareClassic auth failed for sector $sector")
+                        return false
+                    }
+                    currentSector = sector
+                }
+
+                val blockData = hexStringToByteArray(blockHex)
+                if (blockData.size != MifareClassic.BLOCK_SIZE) return false
+                mifare.writeBlock(blockIndex, blockData)
+            }
+            true
+        } catch (e: Exception) {
+            Log.e("NfcCoreManager", "MifareClassic write error: ${e.message}")
+            false
+        } finally {
+            closeMifare(mifare)
+        }
+    }
+
+    private fun closeMifare(mifare: MifareClassic) {
+        try {
+            mifare.close()
+        } catch (_: Exception) {
         }
     }
 

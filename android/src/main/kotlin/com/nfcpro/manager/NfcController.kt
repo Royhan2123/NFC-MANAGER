@@ -92,6 +92,14 @@ class NfcController(activity: Activity) : NfcCoreManager.NfcCallback {
         return nfcCoreManager.writeNdefMessage(tag, message)
     }
 
+    fun readMifareClassic(keyHex: String, startSector: Int, sectorCount: Int): List<String>? {
+        return nfcCoreManager.readMifareClassic(keyHex, startSector, sectorCount)
+    }
+
+    fun writeMifareClassic(keyHex: String, blocks: List<String>, startBlock: Int): Boolean {
+        return nfcCoreManager.writeMifareClassic(keyHex, blocks, startBlock)
+    }
+
     override fun onTagDiscovered(uid: String, cardType: String, content: String?) {
         if (!isSessionActive.get()) return
         if (uid == lastUid) return

@@ -49,6 +49,19 @@ Turn your Android device into a programmable NFC tag:
 await NfcPro.setEmulationId("MY-IDENTITY-TOKEN");
 ```
 
+### MIFARE Classic Clone Support (Android Only)
+Read full card blocks from a MIFARE Classic tag and write them back to another compatible tag.
+```dart
+final blocks = await NfcPro.readMifareClassic(keyA: 'FFFFFFFFFFFF');
+final success = await NfcPro.writeMifareClassic(
+  blocks: blocks ?? [],
+  keyA: 'FFFFFFFFFFFF',
+  startBlock: 0,
+);
+```
+
+> Note: MIFARE Classic operations are only supported on Android.
+
 ### Real Output Example
 ```text
 UID: 04A224B1C39280

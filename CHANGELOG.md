@@ -1,3 +1,8 @@
+## 3.1.5
+- Added Android-only MIFARE Classic support with raw block read/write APIs
+- Exposed `readMifareClassic` and `writeMifareClassic` methods in the Flutter plugin
+- iOS now returns a clear unsupported message for MIFARE Classic operations
+
 ## 3.1.4
 - Removed unnecessary NDK version requirement (pure Kotlin implementation)
 - Automatic minSdkVersion 30 enforcement

@@ -96,6 +96,24 @@ class NfcProPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, DefaultLif
                     val prefs = context?.getSharedPreferences("NfcProPrefs", Context.MODE_PRIVATE)
                     result.success(prefs?.getString("cloned_identity", ""))
                 }
+                "readMifareClassic" -> {
+                    val keyA = call.argument<String>("keyA") ?: "FFFFFFFFFFFF"
+                    val startSector = call.argument<Int>("startSector") ?: 0
+                    val sectorCount = call.argument<Int>("sectorCount") ?: 16
+                    val blocks = nfcController?.readMifareClassic(keyA, startSector, sectorCount)
+                    if (blocks != null) {
+                        result.success(blocks)
+                    } else {
+                        result.error("MIFARE_ERROR", "Failed to read MIFARE Classic card", null)
+                    }
+                }
+                "writeMifareClassic" -> {
+                    val keyA = call.argument<String>("keyA") ?: "FFFFFFFFFFFF"
+                    val startBlock = call.argument<Int>("startBlock") ?: 0
+                    val blocks = call.argument<List<String>>("blocks") ?: emptyList()
+                    val success = nfcController?.writeMifareClassic(keyA, blocks, startBlock) ?: false
+                    result.success(success)
+                }
                 else -> result.notImplemented()
             }
         } catch (e: Exception) {
