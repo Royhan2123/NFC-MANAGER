@@ -1,3 +1,6 @@
+## 3.1.6
+- Fixed Gradle syntax error in Android build configuration (minSdkVersion function call)
+
 ## 3.1.5
 - Added Android-only MIFARE Classic support with raw block read/write APIs
 - Exposed `readMifareClassic` and `writeMifareClassic` methods in the Flutter plugin

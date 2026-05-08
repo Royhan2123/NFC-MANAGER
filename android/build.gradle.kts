@@ -1,5 +1,5 @@
 group = "com.nfcpro.manager"
-version = "3.1.5"
+version = "3.1.6"
 
 plugins {
     id("com.android.library")
@@ -11,7 +11,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-         minSdkVersion = 30 
+        minSdkVersion(30)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("proguard-rules.pro")
     }
