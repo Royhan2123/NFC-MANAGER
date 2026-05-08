@@ -1,0 +1,1 @@
+rootProject.name = "nfc_pro_manager"

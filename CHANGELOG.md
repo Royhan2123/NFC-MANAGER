@@ -1,3 +1,8 @@
+## [3.1.3] - 2026-05-09
+
+- **Fix settings.gradle.kts structure**
+- **Remove unused resources**
+
 ## [3.1.2] - 2026-05-06
 
 ### 🛡️ STABILITY FIX RELEASE
